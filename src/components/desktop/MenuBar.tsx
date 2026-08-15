@@ -10,6 +10,8 @@ import {
   Wifi,
 } from "lucide-react";
 
+import CalendarPopover from "./CalendarPopover";
+
 const DAYS = [
   "Sun",
   "Mon",
@@ -65,8 +67,11 @@ function formatTime(date: Date) {
 export default function MenuBar() {
   const [time, setTime] = useState<Date | null>(null);
 
+  // =====================================================
+  // LIVE CLOCK
+  // =====================================================
+
   useEffect(() => {
-    // Only start reading the browser clock after hydration.
     setTime(new Date());
 
     const timer = setInterval(() => {
@@ -76,11 +81,10 @@ export default function MenuBar() {
     return () => clearInterval(timer);
   }, []);
 
-  /*
-   * Important:
-   * During SSR and the first client render we use the same
-   * static values. This prevents hydration mismatch.
-   */
+  // =====================================================
+  // HYDRATION SAFE VALUES
+  // =====================================================
+
   const displayDate = time
     ? formatDate(time)
     : "Fri, Aug 14";
@@ -91,13 +95,16 @@ export default function MenuBar() {
 
   return (
     <header className="mac-menubar">
-      {/* ================================
-          Left Side
-      ================================= */}
+      {/* =================================================
+          LEFT SIDE
+          ================================================= */}
 
       <div className="mac-menubar-left">
+
         {/* Apple */}
+
         <button
+          type="button"
           className="apple-button"
           aria-label="Apple menu"
         >
@@ -109,76 +116,102 @@ export default function MenuBar() {
         </button>
 
         {/* App Name */}
+
         <span className="active-app">
           Arnab
         </span>
 
         {/* Menu Items */}
-        <button className="menu-item">
+
+        <button
+          type="button"
+          className="menu-item"
+        >
           File
         </button>
 
-        <button className="menu-item">
+        <button
+          type="button"
+          className="menu-item"
+        >
           Edit
         </button>
 
-        <button className="menu-item">
+        <button
+          type="button"
+          className="menu-item"
+        >
           View
         </button>
 
-        <button className="menu-item">
+        <button
+          type="button"
+          className="menu-item"
+        >
           Window
         </button>
 
-        <button className="menu-item">
+        <button
+          type="button"
+          className="menu-item"
+        >
           Help
         </button>
       </div>
 
-      {/* ================================
-          Right Side
-      ================================= */}
+      {/* =================================================
+          RIGHT SIDE
+          ================================================= */}
 
       <div className="mac-menubar-right">
+
         {/* Wi-Fi */}
+
         <Wifi
           size={16}
           strokeWidth={2.2}
         />
 
         {/* Battery */}
+
         <BatteryFull
           size={18}
           strokeWidth={2}
         />
 
         {/* Search */}
+
         <Search
           size={16}
           strokeWidth={2}
         />
 
         {/* Control Center */}
+
         <SlidersHorizontal
           size={17}
           strokeWidth={2}
         />
 
-        {/* Date */}
-        <span className="date">
-          {displayDate}
-        </span>
+        {/* =================================================
+            CALENDAR
+            ================================================= */}
+
+        <CalendarPopover />
 
         {/* Time */}
+
         <span className="time">
           {displayTime}
         </span>
 
         {/* Dropdown */}
+
         <ChevronDown
           size={13}
           strokeWidth={2}
         />
+
       </div>
     </header>
   );

@@ -1,5 +1,7 @@
 "use client";
 
+import Dock from "@/components/desktop/Dock";
+
 import { useCallback, useEffect, useState } from "react";
 
 import Window from "../windows/window";
@@ -19,6 +21,7 @@ import SkillsApp from "@/components/apps/SkillsApp";
 import AboutMeApp from "@/components/apps/AboutMeApp";
 import ResumeApp from "@/components/apps/ResumeApp";
 import ContactApp from "@/components/apps/ContactApp";
+import TerminalApp from "@/components/apps/TerminalApp";
 
 export default function WindowManager() {
   // =====================================================
@@ -119,9 +122,9 @@ export default function WindowManager() {
 
     const dockElement = document.getElementById("portfolio-dock");
 
-    // ---------------------------------------------------
-    // Fallback
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // FALLBACK
+    // -------------------------------------------------
 
     if (!windowElement || !dockElement) {
       setWindows((currentWindows) =>
@@ -140,70 +143,65 @@ export default function WindowManager() {
       return;
     }
 
-    // ---------------------------------------------------
-    // Window rectangle
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // RECTANGLES
+    // -------------------------------------------------
 
     const windowRect = windowElement.getBoundingClientRect();
 
-    // ---------------------------------------------------
-    // Dock rectangle
-    // ---------------------------------------------------
-
     const dockRect = dockElement.getBoundingClientRect();
 
-    // ---------------------------------------------------
-    // Window center
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // WINDOW CENTER
+    // -------------------------------------------------
 
     const windowCenterX = windowRect.left + windowRect.width / 2;
 
     const windowCenterY = windowRect.top + windowRect.height / 2;
 
-    // ---------------------------------------------------
-    // Dock center
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // DOCK CENTER
+    // -------------------------------------------------
 
     const dockCenterX = dockRect.left + dockRect.width / 2;
 
     const dockCenterY = dockRect.top + dockRect.height / 2;
 
-    // ---------------------------------------------------
-    // Movement
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // MOVEMENT
+    // -------------------------------------------------
 
     const translateX = dockCenterX - windowCenterX;
 
     const translateY = dockCenterY - windowCenterY;
 
-    // ---------------------------------------------------
-    // CSS variable
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // MINIMIZE TRANSFORM
+    // -------------------------------------------------
 
     windowElement.style.setProperty(
       "--minimize-transform",
       `translate(${translateX}px, ${translateY}px) scale(0.1)`,
     );
 
-    // ---------------------------------------------------
-    // Start animation
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // START ANIMATION
+    // -------------------------------------------------
 
     setWindows((currentWindows) =>
       currentWindows.map((window) =>
         window.id === id
           ? {
               ...window,
-
               isMinimizing: true,
             }
           : window,
       ),
     );
 
-    // ---------------------------------------------------
-    // Finish animation
-    // ---------------------------------------------------
+    // -------------------------------------------------
+    // FINISH ANIMATION
+    // -------------------------------------------------
 
     setTimeout(() => {
       setWindows((currentWindows) =>
@@ -332,7 +330,7 @@ export default function WindowManager() {
       const windowId = `project-${projectId}`;
 
       // -------------------------------------------------
-      // Existing window
+      // EXISTING PROJECT WINDOW
       // -------------------------------------------------
 
       const existingWindow = windows.find((window) => window.id === windowId);
@@ -362,7 +360,7 @@ export default function WindowManager() {
       }
 
       // -------------------------------------------------
-      // Create new project window
+      // NEW PROJECT WINDOW
       // -------------------------------------------------
 
       const newZIndex = highestZIndex + 1;
@@ -413,7 +411,7 @@ export default function WindowManager() {
   );
 
   // =====================================================
-  // DOCK CLICK
+  // PORTFOLIO WINDOW CLICK
   // =====================================================
 
   const handleDockClick = useCallback(
@@ -424,33 +422,112 @@ export default function WindowManager() {
         return;
       }
 
-      // -----------------------------------------------
       // Closed
-      // -----------------------------------------------
 
       if (!selectedWindow.isOpen) {
         openWindow(id);
-
         return;
       }
 
-      // -----------------------------------------------
       // Minimized
-      // -----------------------------------------------
 
       if (selectedWindow.isMinimized) {
         openWindow(id);
-
         return;
       }
 
-      // -----------------------------------------------
       // Already open
-      // -----------------------------------------------
 
       focusWindow(id);
     },
     [windows, openWindow, focusWindow],
+  );
+
+  // =====================================================
+  // NEW DOCK APP HANDLER
+  // =====================================================
+
+  const handleDockAppClick = useCallback(
+    (id: string) => {
+      // ===============================================
+      // FINDER
+      // ===============================================
+
+      if (id === "finder") {
+        handleDockClick("projects");
+        return;
+      }
+
+      // ===============================================
+      // SAFARI
+      // ===============================================
+
+      if (id === "safari") {
+        console.log("Safari will be implemented next.");
+        return;
+      }
+
+      // ===============================================
+      // TERMINAL
+      // ===============================================
+
+      if (id === "terminal") {
+        handleDockClick("terminal");
+        return;
+      }
+
+      // ===============================================
+      // FILES
+      // ===============================================
+
+      if (id === "files") {
+        handleDockClick("projects");
+        return;
+      }
+
+      // ===============================================
+      // MAIL
+      // ===============================================
+
+      if (id === "mail") {
+        handleDockClick("contact");
+        return;
+      }
+
+      // ===============================================
+      // AI
+      // ===============================================
+
+      if (id === "ai") {
+        handleDockClick("assistant");
+        return;
+      }
+
+      // ===============================================
+      // NOTES
+      // ===============================================
+
+      if (id === "notes") {
+        console.log("Notes will be implemented next.");
+        return;
+      }
+
+      // ===============================================
+      // SETTINGS
+      // ===============================================
+
+      if (id === "settings") {
+        console.log("Settings will be implemented next.");
+        return;
+      }
+
+      // ===============================================
+      // EXISTING APP
+      // ===============================================
+
+      handleDockClick(id);
+    },
+    [handleDockClick],
   );
 
   // =====================================================
@@ -476,58 +553,61 @@ export default function WindowManager() {
     // ---------------------------------------------------
 
     switch (currentWindow.id) {
-      // ================================================
+      // ===============================================
       // PROJECTS
-      // ================================================
+      // ===============================================
+
+      case "terminal":
+        return <TerminalApp />;
 
       case "projects":
         return <ProjectsApp onOpenProject={openProjectWindow} />;
 
-      // ================================================
+      // ===============================================
       // EDUCATION
-      // ================================================
+      // ===============================================
 
       case "education":
         return <EducationApp />;
 
-      // ================================================
+      // ===============================================
       // EXPERIENCE
-      // ================================================
+      // ===============================================
 
       case "experience":
         return <ExperienceApp />;
 
-      // ================================================
+      // ===============================================
       // SKILLS
-      // ================================================
+      // ===============================================
 
       case "skills":
         return <SkillsApp />;
 
-      // ================================================
+      // ===============================================
       // RESUME
-      // ================================================
+      // ===============================================
 
       case "resume":
         return <ResumeApp />;
 
-      // ================================================
-      // ABOUT ME
-      // ================================================
+      // ===============================================
+      // ABOUT
+      // ===============================================
 
       case "about":
         return <AboutMeApp />;
 
-      // ================================================
+      // ===============================================
       // CONTACT
-      // ================================================
+      // ===============================================
 
       case "contact":
         return <ContactApp />;
 
-      // ================================================
+      // ===============================================
       // AI ASSISTANT
-      // ================================================
+      // ===============================================
 
       case "assistant":
         return (
@@ -540,9 +620,9 @@ export default function WindowManager() {
           </div>
         );
 
-      // ================================================
+      // ===============================================
       // DEFAULT
-      // ================================================
+      // ===============================================
 
       default:
         return (
@@ -573,7 +653,7 @@ export default function WindowManager() {
 
       {windows.map((currentWindow) => {
         // ---------------------------------------------
-        // Don't render closed windows
+        // CLOSED / MINIMIZED
         // ---------------------------------------------
 
         if (!currentWindow.isOpen || currentWindow.isMinimized) {
@@ -604,109 +684,15 @@ export default function WindowManager() {
       })}
 
       {/* =================================================
-          DOCK
+          NEW MACOS DOCK
           ================================================= */}
 
-      <div
-        id="portfolio-dock"
-        className="
-          fixed
-          bottom-5
-          left-1/2
-          z-[10000]
-          -translate-x-1/2
-        "
-      >
-        <div
-          className="
-            flex
-            items-center
-            gap-2
-            rounded-2xl
-            border
-            border-white/20
-            bg-white/10
-            px-3
-            py-2
-            shadow-2xl
-            backdrop-blur-xl
-          "
-        >
-          {apps.map((app) => {
-            const windowState = windows.find((window) => window.id === app.id);
-
-            const isRunning = windowState?.isOpen && !windowState?.isMinimized;
-
-            return (
-              <button
-                key={app.id}
-                type="button"
-                onClick={() => handleDockClick(app.id)}
-                className="
-                  group
-                  relative
-                  flex
-                  h-12
-                  w-12
-                  cursor-pointer
-                  items-center
-                  justify-center
-                  rounded-xl
-                  text-2xl
-                  transition-all
-                  duration-200
-                  hover:-translate-y-2
-                  hover:scale-110
-                  hover:bg-white/10
-                "
-              >
-                {/* App Icon */}
-
-                {app.icon}
-
-                {/* Running Indicator */}
-
-                {isRunning && (
-                  <span
-                    className="
-                      absolute
-                      -bottom-1
-                      h-1
-                      w-1
-                      rounded-full
-                      bg-white
-                    "
-                  />
-                )}
-
-                {/* Tooltip */}
-
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    -top-10
-                    left-1/2
-                    -translate-x-1/2
-                    whitespace-nowrap
-                    rounded-md
-                    bg-black/80
-                    px-2
-                    py-1
-                    text-xs
-                    text-white
-                    opacity-0
-                    transition-opacity
-                    group-hover:opacity-100
-                  "
-                >
-                  {app.name}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <Dock
+        onOpenApp={handleDockAppClick}
+        runningApps={windows
+          .filter((window) => window.isOpen && !window.isMinimized)
+          .map((window) => window.id)}
+      />
     </>
   );
 }

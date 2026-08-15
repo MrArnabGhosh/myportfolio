@@ -6,6 +6,10 @@ export interface AppDefinition {
 }
 
 export const apps: AppDefinition[] = [
+  // =====================================================
+  // DESKTOP / PORTFOLIO APPS
+  // =====================================================
+
   {
     id: "projects",
     name: "Projects",
@@ -49,6 +53,13 @@ export const apps: AppDefinition[] = [
   },
 
   {
+    id: "contact",
+    name: "Contact",
+    icon: "✉️",
+    type: "app",
+  },
+
+  {
     id: "assistant",
     name: "AI Assistant",
     icon: "🤖",
@@ -56,13 +67,13 @@ export const apps: AppDefinition[] = [
   },
 
   // =====================================================
-  // CONTACT
+  // TERMINAL
   // =====================================================
 
   {
-    id: "contact",
-    name: "Contact",
-    icon: "✉️",
+    id: "terminal",
+    name: "Terminal",
+    icon: "terminal",
     type: "app",
   },
 ];

@@ -7,24 +7,34 @@ import WelcomeHero from "@/components/desktop/WelcomeHero";
 export default function Home() {
   return (
     <main className="mac-desktop">
+      {/* =================================================
+          WALLPAPER
+          ================================================= */}
 
-      {/* Wallpaper */}
       <div
         className="mac-wallpaper"
         aria-hidden="true"
       />
 
-      {/* Menu Bar */}
+      {/* =================================================
+          MENU BAR
+          ================================================= */}
+
       <MenuBar />
 
-      {/* Welcome Text */}
+      {/* =================================================
+          WELCOME HERO
+          ================================================= */}
+
       <WelcomeHero />
 
-      {/* Desktop / Windows / Dock */}
+      {/* =================================================
+          DESKTOP / WINDOWS / DOCK
+          ================================================= */}
+
       <div className="mac-desktop-content">
         <WindowManager />
       </div>
-
     </main>
   );
 }
