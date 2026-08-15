@@ -101,6 +101,13 @@ body {
 
   transform: scale(1.05);
 }
+.portfolio-light .mac-wallpaper {
+  filter: brightness(1.15);
+}
+
+.portfolio-dark .mac-wallpaper {
+  filter: brightness(0.85);
+}
 
 /* Soft wallpaper glow */
 .mac-wallpaper::after {
@@ -426,4 +433,144 @@ body {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* =====================================================
+   WALLPAPERS
+   ===================================================== */
+
+.wallpaper-default .mac-wallpaper {
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(90, 130, 255, 0.35),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 80% 70%,
+      rgba(150, 70, 255, 0.3),
+      transparent 40%
+    ),
+    linear-gradient(
+      135deg,
+      #07111f,
+      #101b38,
+      #080b18
+    );
+}
+
+.wallpaper-aurora .mac-wallpaper {
+  background:
+    radial-gradient(
+      ellipse at 30% 30%,
+      rgba(40, 255, 190, 0.35),
+      transparent 35%
+    ),
+    radial-gradient(
+      ellipse at 70% 65%,
+      rgba(90, 80, 255, 0.4),
+      transparent 40%
+    ),
+    linear-gradient(
+      135deg,
+      #06131a,
+      #10183c,
+      #050814
+    );
+}
+
+.wallpaper-ocean .mac-wallpaper {
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(0, 190, 255, 0.35),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 75% 70%,
+      rgba(20, 90, 255, 0.4),
+      transparent 40%
+    ),
+    linear-gradient(
+      135deg,
+      #03101d,
+      #062b4a,
+      #020914
+    );
+}
+
+.wallpaper-purple .mac-wallpaper {
+  background:
+    radial-gradient(
+      circle at 25% 30%,
+      rgba(255, 80, 180, 0.3),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 75% 65%,
+      rgba(120, 60, 255, 0.45),
+      transparent 40%
+    ),
+    linear-gradient(
+      135deg,
+      #10051c,
+      #241044,
+      #08030f
+    );
+}
+
+.wallpaper-preview-default {
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(100, 140, 255, 0.8),
+      transparent 45%
+    ),
+    linear-gradient(
+      135deg,
+      #07111f,
+      #101b38
+    );
+}
+
+.wallpaper-preview-aurora {
+  background:
+    radial-gradient(
+      ellipse at 30% 30%,
+      rgba(40, 255, 190, 0.8),
+      transparent 45%
+    ),
+    linear-gradient(
+      135deg,
+      #06131a,
+      #10183c
+    );
+}
+
+.wallpaper-preview-ocean {
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(0, 200, 255, 0.8),
+      transparent 45%
+    ),
+    linear-gradient(
+      135deg,
+      #03101d,
+      #062b4a
+    );
+}
+
+.wallpaper-preview-purple {
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(255, 80, 180, 0.8),
+      transparent 45%
+    ),
+    linear-gradient(
+      135deg,
+      #10051c,
+      #241044
+    );
 }

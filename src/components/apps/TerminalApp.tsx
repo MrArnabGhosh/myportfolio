@@ -204,7 +204,7 @@ export default function TerminalApp() {
           "  B.Tech in Computer Science Engineering",
           "  Specialization: Cyber Security",
           "  The Neotia University",
-          "  Expected June 2026",
+          "  June 2026",
         ].join("\n"),
       });
     }

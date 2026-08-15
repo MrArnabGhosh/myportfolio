@@ -2,7 +2,7 @@
 
 import Dock from "@/components/desktop/Dock";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import Window from "../windows/window";
 
@@ -22,18 +22,83 @@ import AboutMeApp from "@/components/apps/AboutMeApp";
 import ResumeApp from "@/components/apps/ResumeApp";
 import ContactApp from "@/components/apps/ContactApp";
 import TerminalApp from "@/components/apps/TerminalApp";
+import SafariApp from "@/components/apps/SafariApp";
+import FinderApp from "@/components/apps/FinderApp";
+import MailApp from "@/components/apps/MailApp";
+import NotesApp from "@/components/apps/NotesApp";
+import SettingsApp from "@/components/apps/SettingsApp";
+import AIAssistantApp from "@/components/apps/AIAssistantApp";
+
+import { usePortfolioSettings } from "@/context/PortfolioSettings";
 
 export default function WindowManager() {
   // =====================================================
-  // WINDOW POSITION
+  // PORTFOLIO SETTINGS
   // =====================================================
 
-  const getNewWindowPosition = useCallback((index: number) => {
-    const offset = index * 40;
+  const { playSound } = usePortfolioSettings();
+
+  // =====================================================
+  // WINDOW SIZE
+  // =====================================================
+
+  const WINDOW_WIDTH = 900;
+  const WINDOW_HEIGHT = 600;
+
+  // =====================================================
+  // CENTER POSITION
+  // =====================================================
+
+  const getCenteredPosition = useCallback(() => {
+    if (typeof window === "undefined") {
+      return {
+        x: 100,
+        y: 100,
+      };
+    }
 
     return {
-      x: 100 + offset,
-      y: 100 + offset,
+      x: Math.max(20, (window.innerWidth - WINDOW_WIDTH) / 2),
+
+      y: Math.max(40, (window.innerHeight - WINDOW_HEIGHT) / 2),
+    };
+  }, []);
+
+  // =====================================================
+  // MACOS CASCADE POSITION
+  // =====================================================
+
+  const getCascadePosition = useCallback((openWindowCount: number) => {
+    if (typeof window === "undefined") {
+      return {
+        x: 100,
+        y: 100,
+      };
+    }
+
+    const centerX = (window.innerWidth - WINDOW_WIDTH) / 2;
+
+    const centerY = (window.innerHeight - WINDOW_HEIGHT) / 2;
+
+    /*
+     * macOS-style cascade
+     *
+     * 0 open windows → center
+     * 1 open window  → +35px
+     * 2 open windows → +70px
+     * 3 open windows → +105px
+     */
+
+    const offset = Math.min(openWindowCount * 35, 140);
+
+    const maxX = window.innerWidth - WINDOW_WIDTH - 20;
+
+    const maxY = window.innerHeight - WINDOW_HEIGHT - 100;
+
+    return {
+      x: Math.max(20, Math.min(centerX + offset, maxX)),
+
+      y: Math.max(40, Math.min(centerY + offset, maxY)),
     };
   }, []);
 
@@ -42,7 +107,7 @@ export default function WindowManager() {
   // =====================================================
 
   const [windows, setWindows] = useState<WindowState[]>(() =>
-    apps.map((app, index) => ({
+    apps.map((app) => ({
       id: app.id,
       title: app.name,
 
@@ -51,9 +116,18 @@ export default function WindowManager() {
       isMinimizing: false,
       isMaximized: false,
 
-      zIndex: index + 10,
+      /*
+       * False until the application is opened
+       * for the first time.
+       */
+      hasBeenOpened: false,
 
-      position: getNewWindowPosition(index),
+      zIndex: 10,
+
+      position: {
+        x: 100,
+        y: 100,
+      },
 
       type: "app",
     })),
@@ -66,47 +140,29 @@ export default function WindowManager() {
   const [highestZIndex, setHighestZIndex] = useState(10);
 
   // =====================================================
-  // CENTER WINDOWS AFTER HYDRATION
-  // =====================================================
-
-  useEffect(() => {
-    const windowWidth = 900;
-    const windowHeight = 600;
-
-    const centerX = (window.innerWidth - windowWidth) / 2;
-
-    const centerY = (window.innerHeight - windowHeight) / 2;
-
-    setWindows((currentWindows) =>
-      currentWindows.map((window, index) => ({
-        ...window,
-
-        position: {
-          x: Math.max(20, centerX + index * 40),
-
-          y: Math.max(40, centerY + index * 40),
-        },
-      })),
-    );
-  }, []);
-
-  // =====================================================
   // CLOSE WINDOW
   // =====================================================
 
   const closeWindow = useCallback((id: string) => {
     setWindows((currentWindows) =>
-      currentWindows.map((window) =>
-        window.id === id
+      currentWindows.map((currentWindow) =>
+        currentWindow.id === id
           ? {
-              ...window,
+              ...currentWindow,
 
               isOpen: false,
               isMinimized: false,
               isMinimizing: false,
               isMaximized: false,
+
+              /*
+               * Do NOT reset hasBeenOpened.
+               *
+               * The next time the user opens
+               * this app, it keeps its position.
+               */
             }
-          : window,
+          : currentWindow,
       ),
     );
   }, []);
@@ -128,15 +184,15 @@ export default function WindowManager() {
 
     if (!windowElement || !dockElement) {
       setWindows((currentWindows) =>
-        currentWindows.map((window) =>
-          window.id === id
+        currentWindows.map((currentWindow) =>
+          currentWindow.id === id
             ? {
-                ...window,
+                ...currentWindow,
 
                 isMinimized: true,
                 isMinimizing: false,
               }
-            : window,
+            : currentWindow,
         ),
       );
 
@@ -144,10 +200,14 @@ export default function WindowManager() {
     }
 
     // -------------------------------------------------
-    // RECTANGLES
+    // WINDOW RECT
     // -------------------------------------------------
 
     const windowRect = windowElement.getBoundingClientRect();
+
+    // -------------------------------------------------
+    // DOCK RECT
+    // -------------------------------------------------
 
     const dockRect = dockElement.getBoundingClientRect();
 
@@ -189,13 +249,14 @@ export default function WindowManager() {
     // -------------------------------------------------
 
     setWindows((currentWindows) =>
-      currentWindows.map((window) =>
-        window.id === id
+      currentWindows.map((currentWindow) =>
+        currentWindow.id === id
           ? {
-              ...window,
+              ...currentWindow,
+
               isMinimizing: true,
             }
-          : window,
+          : currentWindow,
       ),
     );
 
@@ -205,15 +266,15 @@ export default function WindowManager() {
 
     setTimeout(() => {
       setWindows((currentWindows) =>
-        currentWindows.map((window) =>
-          window.id === id
+        currentWindows.map((currentWindow) =>
+          currentWindow.id === id
             ? {
-                ...window,
+                ...currentWindow,
 
                 isMinimizing: false,
                 isMinimized: true,
               }
-            : window,
+            : currentWindow,
         ),
       );
     }, 450);
@@ -225,14 +286,14 @@ export default function WindowManager() {
 
   const toggleMaximize = useCallback((id: string) => {
     setWindows((currentWindows) =>
-      currentWindows.map((window) =>
-        window.id === id
+      currentWindows.map((currentWindow) =>
+        currentWindow.id === id
           ? {
-              ...window,
+              ...currentWindow,
 
-              isMaximized: !window.isMaximized,
+              isMaximized: !currentWindow.isMaximized,
             }
-          : window,
+          : currentWindow,
       ),
     );
   }, []);
@@ -244,17 +305,17 @@ export default function WindowManager() {
   const updateWindowPosition = useCallback(
     (id: string, x: number, y: number) => {
       setWindows((currentWindows) =>
-        currentWindows.map((window) =>
-          window.id === id
+        currentWindows.map((currentWindow) =>
+          currentWindow.id === id
             ? {
-                ...window,
+                ...currentWindow,
 
                 position: {
                   x,
                   y,
                 },
               }
-            : window,
+            : currentWindow,
         ),
       );
     },
@@ -265,26 +326,25 @@ export default function WindowManager() {
   // FOCUS WINDOW
   // =====================================================
 
-  const focusWindow = useCallback(
-    (id: string) => {
-      const newZIndex = highestZIndex + 1;
-
-      setHighestZIndex(newZIndex);
+  const focusWindow = useCallback((id: string) => {
+    setHighestZIndex((currentZIndex) => {
+      const newZIndex = currentZIndex + 1;
 
       setWindows((currentWindows) =>
-        currentWindows.map((window) =>
-          window.id === id
+        currentWindows.map((currentWindow) =>
+          currentWindow.id === id
             ? {
-                ...window,
+                ...currentWindow,
 
                 zIndex: newZIndex,
               }
-            : window,
+            : currentWindow,
         ),
       );
-    },
-    [highestZIndex],
-  );
+
+      return newZIndex;
+    });
+  }, []);
 
   // =====================================================
   // OPEN / RESTORE WINDOW
@@ -292,27 +352,94 @@ export default function WindowManager() {
 
   const openWindow = useCallback(
     (id: string) => {
-      const newZIndex = highestZIndex + 1;
+      /*
+       * Play click sound when an application
+       * is opened/restored.
+       */
+      playSound();
 
-      setHighestZIndex(newZIndex);
+      setHighestZIndex((currentZIndex) => {
+        const newZIndex = currentZIndex + 1;
 
-      setWindows((currentWindows) =>
-        currentWindows.map((window) =>
-          window.id === id
-            ? {
-                ...window,
+        setWindows((currentWindows) => {
+          const selectedWindow = currentWindows.find(
+            (currentWindow) => currentWindow.id === id,
+          );
 
-                isOpen: true,
-                isMinimized: false,
-                isMinimizing: false,
+          if (!selectedWindow) {
+            return currentWindows;
+          }
 
-                zIndex: newZIndex,
-              }
-            : window,
-        ),
-      );
+          // -------------------------------------------
+          // CURRENTLY VISIBLE WINDOWS
+          // -------------------------------------------
+
+          const openWindowCount = currentWindows.filter(
+            (currentWindow) =>
+              currentWindow.isOpen && !currentWindow.isMinimized,
+          ).length;
+
+          // -------------------------------------------
+          // FIRST TIME OPENED?
+          // -------------------------------------------
+
+          const firstOpen = !selectedWindow.hasBeenOpened;
+
+          // -------------------------------------------
+          // POSITION
+          // -------------------------------------------
+
+          let position = selectedWindow.position;
+
+          /*
+           * FIRST APP
+           *
+           * If there are no visible windows,
+           * open exactly in the center.
+           */
+
+          if (firstOpen && openWindowCount === 0) {
+            position = getCenteredPosition();
+          } else if (firstOpen) {
+
+          /*
+           * NEW APP
+           *
+           * If another application is already
+           * open, use the macOS-style cascade.
+           */
+            position = getCascadePosition(openWindowCount);
+          }
+
+          /*
+           * EXISTING APP
+           *
+           * Restore its previous position.
+           */
+
+          return currentWindows.map((currentWindow) =>
+            currentWindow.id === id
+              ? {
+                  ...currentWindow,
+
+                  isOpen: true,
+                  isMinimized: false,
+                  isMinimizing: false,
+
+                  hasBeenOpened: true,
+
+                  zIndex: newZIndex,
+
+                  position,
+                }
+              : currentWindow,
+          );
+        });
+
+        return newZIndex;
+      });
     },
-    [highestZIndex],
+    [playSound, getCenteredPosition, getCascadePosition],
   );
 
   // =====================================================
@@ -321,6 +448,8 @@ export default function WindowManager() {
 
   const openProjectWindow = useCallback(
     (projectId: string) => {
+      playSound();
+
       const project = projects.find((item) => item.id === projectId);
 
       if (!project) {
@@ -333,28 +462,32 @@ export default function WindowManager() {
       // EXISTING PROJECT WINDOW
       // -------------------------------------------------
 
-      const existingWindow = windows.find((window) => window.id === windowId);
+      const existingWindow = windows.find(
+        (currentWindow) => currentWindow.id === windowId,
+      );
 
       if (existingWindow) {
-        const newZIndex = highestZIndex + 1;
+        setHighestZIndex((currentZIndex) => {
+          const newZIndex = currentZIndex + 1;
 
-        setHighestZIndex(newZIndex);
+          setWindows((currentWindows) =>
+            currentWindows.map((currentWindow) =>
+              currentWindow.id === windowId
+                ? {
+                    ...currentWindow,
 
-        setWindows((currentWindows) =>
-          currentWindows.map((window) =>
-            window.id === windowId
-              ? {
-                  ...window,
+                    isOpen: true,
+                    isMinimized: false,
+                    isMinimizing: false,
 
-                  isOpen: true,
-                  isMinimized: false,
-                  isMinimizing: false,
+                    zIndex: newZIndex,
+                  }
+                : currentWindow,
+            ),
+          );
 
-                  zIndex: newZIndex,
-                }
-              : window,
-          ),
-        );
+          return newZIndex;
+        });
 
         return;
       }
@@ -363,51 +496,49 @@ export default function WindowManager() {
       // NEW PROJECT WINDOW
       // -------------------------------------------------
 
-      const newZIndex = highestZIndex + 1;
+      setHighestZIndex((currentZIndex) => {
+        const newZIndex = currentZIndex + 1;
 
-      setHighestZIndex(newZIndex);
+        setWindows((currentWindows) => {
+          const openWindowCount = currentWindows.filter(
+            (currentWindow) =>
+              currentWindow.isOpen && !currentWindow.isMinimized,
+          ).length;
 
-      setWindows((currentWindows) => [
-        ...currentWindows,
+          const position =
+            openWindowCount === 0
+              ? getCenteredPosition()
+              : getCascadePosition(openWindowCount);
 
-        {
-          id: windowId,
-          title: project.name,
+          return [
+            ...currentWindows,
 
-          isOpen: true,
-          isMinimized: false,
-          isMinimizing: false,
-          isMaximized: false,
+            {
+              id: windowId,
+              title: project.name,
 
-          zIndex: newZIndex,
+              isOpen: true,
+              isMinimized: false,
+              isMinimizing: false,
+              isMaximized: false,
 
-          position: {
-            x: Math.max(
-              20,
-              Math.min(
-                (window.innerWidth - 900) / 2 + 60,
+              hasBeenOpened: true,
 
-                window.innerWidth - 900 - 20,
-              ),
-            ),
+              zIndex: newZIndex,
 
-            y: Math.max(
-              40,
-              Math.min(
-                (window.innerHeight - 600) / 2 + 40,
+              position,
 
-                window.innerHeight - 600 - 100,
-              ),
-            ),
-          },
+              type: "project",
 
-          type: "project",
+              projectId,
+            },
+          ];
+        });
 
-          projectId,
-        },
-      ]);
+        return newZIndex;
+      });
     },
-    [windows, highestZIndex],
+    [playSound, windows, getCenteredPosition, getCascadePosition],
   );
 
   // =====================================================
@@ -416,27 +547,35 @@ export default function WindowManager() {
 
   const handleDockClick = useCallback(
     (id: string) => {
-      const selectedWindow = windows.find((window) => window.id === id);
+      const selectedWindow = windows.find(
+        (currentWindow) => currentWindow.id === id,
+      );
 
       if (!selectedWindow) {
         return;
       }
 
-      // Closed
+      // -------------------------------------------------
+      // CLOSED
+      // -------------------------------------------------
 
       if (!selectedWindow.isOpen) {
         openWindow(id);
         return;
       }
 
-      // Minimized
+      // -------------------------------------------------
+      // MINIMIZED
+      // -------------------------------------------------
 
       if (selectedWindow.isMinimized) {
         openWindow(id);
         return;
       }
 
-      // Already open
+      // -------------------------------------------------
+      // ALREADY OPEN
+      // -------------------------------------------------
 
       focusWindow(id);
     },
@@ -444,86 +583,86 @@ export default function WindowManager() {
   );
 
   // =====================================================
-  // NEW DOCK APP HANDLER
+  // DOCK APP HANDLER
   // =====================================================
 
   const handleDockAppClick = useCallback(
     (id: string) => {
-      // ===============================================
+      // =============================================
       // FINDER
-      // ===============================================
+      // =============================================
 
       if (id === "finder") {
-        handleDockClick("projects");
+        handleDockClick("finder");
         return;
       }
 
-      // ===============================================
+      // =============================================
       // SAFARI
-      // ===============================================
+      // =============================================
 
       if (id === "safari") {
-        console.log("Safari will be implemented next.");
+        handleDockClick("safari");
         return;
       }
 
-      // ===============================================
+      // =============================================
       // TERMINAL
-      // ===============================================
+      // =============================================
 
       if (id === "terminal") {
         handleDockClick("terminal");
         return;
       }
 
-      // ===============================================
+      // =============================================
       // FILES
-      // ===============================================
+      // =============================================
 
       if (id === "files") {
         handleDockClick("projects");
         return;
       }
 
-      // ===============================================
+      // =============================================
       // MAIL
-      // ===============================================
+      // =============================================
 
       if (id === "mail") {
-        handleDockClick("contact");
+        handleDockClick("mail");
         return;
       }
 
-      // ===============================================
+      // =============================================
       // AI
-      // ===============================================
+      // =============================================
 
       if (id === "ai") {
         handleDockClick("assistant");
         return;
       }
 
-      // ===============================================
+      // =============================================
       // NOTES
-      // ===============================================
+      // =============================================
 
       if (id === "notes") {
-        console.log("Notes will be implemented next.");
+        handleDockClick("notes");
         return;
       }
 
-      // ===============================================
+      // =============================================
       // SETTINGS
-      // ===============================================
+      // =============================================
 
       if (id === "settings") {
-        console.log("Settings will be implemented next.");
+        handleDockClick("settings");
         return;
       }
 
-      // ===============================================
+      // =============================================
       // EXISTING APP
-      // ===============================================
+      // =============================================
 
       handleDockClick(id);
     },
@@ -554,11 +693,49 @@ export default function WindowManager() {
 
     switch (currentWindow.id) {
       // ===============================================
-      // PROJECTS
+      // FINDER
+      // ===============================================
+
+      case "finder":
+        return (
+          <FinderApp
+            onOpenItem={(id) => {
+              openWindow(id);
+            }}
+          />
+        );
+
+      // ===============================================
+      // SAFARI
+      // ===============================================
+
+      case "safari":
+        return <SafariApp />;
+
+      // ===============================================
+      // TERMINAL
       // ===============================================
 
       case "terminal":
         return <TerminalApp />;
+
+      // ===============================================
+      // MAIL
+      // ===============================================
+
+      case "mail":
+        return <MailApp />;
+
+      // ===============================================
+      // NOTES
+      // ===============================================
+
+      case "notes":
+        return <NotesApp />;
+
+      // ===============================================
+      // PROJECTS
+      // ===============================================
 
       case "projects":
         return <ProjectsApp onOpenProject={openProjectWindow} />;
@@ -610,15 +787,14 @@ export default function WindowManager() {
       // ===============================================
 
       case "assistant":
-        return (
-          <div className="p-8 text-white">
-            <h1 className="text-3xl font-bold">AI Assistant</h1>
+  return <AIAssistantApp />;
 
-            <p className="mt-4 text-white/50">
-              AI Assistant application coming soon...
-            </p>
-          </div>
-        );
+      // ===============================================
+      // SETTINGS
+      // ===============================================
+
+      case "settings":
+        return <SettingsApp />;
 
       // ===============================================
       // DEFAULT
@@ -652,9 +828,9 @@ export default function WindowManager() {
           ================================================= */}
 
       {windows.map((currentWindow) => {
-        // ---------------------------------------------
+        // -------------------------------------------
         // CLOSED / MINIMIZED
-        // ---------------------------------------------
+        // -------------------------------------------
 
         if (!currentWindow.isOpen || currentWindow.isMinimized) {
           return null;
@@ -684,14 +860,17 @@ export default function WindowManager() {
       })}
 
       {/* =================================================
-          NEW MACOS DOCK
+          DOCK
           ================================================= */}
 
       <Dock
         onOpenApp={handleDockAppClick}
         runningApps={windows
-          .filter((window) => window.isOpen && !window.isMinimized)
-          .map((window) => window.id)}
+          .filter(
+            (currentWindow) =>
+              currentWindow.isOpen && !currentWindow.isMinimized,
+          )
+          .map((currentWindow) => currentWindow.id)}
       />
     </>
   );
