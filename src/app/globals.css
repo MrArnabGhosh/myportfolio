@@ -1,8 +1,9 @@
+@import url("https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Permanent+Marker&display=swap");
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000;
+  --foreground: #fff;
 }
 
 @theme inline {
@@ -12,15 +13,417 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ================================
+   Base
+================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #000;
+  color: #fff;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Display",
+    "SF Pro Text",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
+
+/* ================================
+   macOS Desktop
+================================ */
+
+.mac-desktop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #07111f;
+}
+
+/* ================================
+   macOS-style Wallpaper
+================================ */
+
+.mac-wallpaper {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+
+  background:
+    radial-gradient(
+      ellipse at 18% 20%,
+      rgba(91, 142, 255, 0.75) 0%,
+      rgba(91, 142, 255, 0.35) 18%,
+      transparent 48%
+    ),
+    radial-gradient(
+      ellipse at 82% 18%,
+      rgba(179, 91, 255, 0.7) 0%,
+      rgba(179, 91, 255, 0.25) 22%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 50% 75%,
+      rgba(25, 119, 255, 0.65) 0%,
+      rgba(25, 119, 255, 0.2) 28%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse at 85% 85%,
+      rgba(255, 78, 159, 0.55) 0%,
+      rgba(255, 78, 159, 0.15) 24%,
+      transparent 50%
+    ),
+    linear-gradient(
+      135deg,
+      #07152c 0%,
+      #101c45 28%,
+      #24164d 52%,
+      #102f62 75%,
+      #071326 100%
+    );
+
+  transform: scale(1.05);
+}
+
+/* Soft wallpaper glow */
+.mac-wallpaper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      transparent 20%,
+      rgba(0, 0, 0, 0.08) 60%,
+      rgba(0, 0, 0, 0.32) 100%
+    );
+
+  pointer-events: none;
+}
+
+/* ================================
+   Desktop Content
+================================ */
+
+.mac-desktop-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ================================
+   Existing Window Animation
+================================ */
+
+@keyframes minimize-window {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: var(--minimize-transform);
+    opacity: 0;
+  }
+}
+
+.window-minimizing {
+  animation: minimize-window 450ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+
+/* ================================
+   macOS Menu Bar
+================================ */
+
+.mac-menubar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+
+  height: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 12px;
+
+  background: rgba(30, 30, 30, 0.42);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+
+  color: rgba(255, 255, 255, 0.95);
+
+  font-size: 13px;
+  font-weight: 500;
+
+  z-index: 9999;
+
+  user-select: none;
+}
+
+/* Left */
+
+.mac-menubar-left,
+.mac-menubar-right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.mac-menubar-left {
+  gap: 2px;
+}
+
+.mac-menubar-right {
+  gap: 14px;
+}
+
+.apple-button,
+.menu-item {
+  height: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  background: transparent;
+
+  color: inherit;
+
+  padding: 0 8px;
+
+  border-radius: 5px;
+
+  cursor: default;
+
+  font: inherit;
+}
+
+.apple-button {
+  padding: 0 7px;
+}
+
+.apple-button:hover,
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.active-app {
+  font-weight: 650;
+  padding: 0 9px;
+}
+
+.date,
+.time {
+  white-space: nowrap;
+}
+
+.time {
+  margin-left: -10px;
+}
+
+/* ================================
+   Mobile Menu Bar
+================================ */
+
+@media (max-width: 700px) {
+  .mac-menubar-left .menu-item {
+    display: none;
+  }
+
+  .active-app {
+    display: block;
+  }
+
+  .mac-menubar-right {
+    gap: 9px;
+  }
+
+  .mac-menubar-right .date {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .mac-menubar-right svg:nth-child(3),
+  .mac-menubar-right svg:nth-child(4) {
+    display: none;
+  }
+
+  .mac-menubar {
+    padding: 0 8px;
+  }
+}
+
+
+
+ .desktop-icons {
+  position: fixed;
+  top: 48px;
+  left: 18px;
+  right: auto;
+
+  width: 82px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  gap: 7px;
+
+  z-index: 50;
+
+  user-select: none;
+}
+
+.desktop-icon {
+  width: 76px;
+  min-height: 75px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  padding: 3px 2px;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+  color: white;
+
+  border-radius: 7px;
+
+  cursor: default;
+
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
+
+.desktop-icon-image {
+  width: 56px;
+  height: 56px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 1px;
+
+  filter:
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4))
+    drop-shadow(0 5px 8px rgba(0, 0, 0, 0.2));
+
+  transition: transform 120ms ease;
+}
+
+.desktop-icon-image svg {
+  width: 54px;
+  height: 54px;
+}
+
+.desktop-icon-label {
+  max-width: 76px;
+
+  padding: 1px 4px;
+
+  border-radius: 4px;
+
+  color: white;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  line-height: 15px;
+
+  text-align: center;
+
+  white-space: nowrap;
+
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+.desktop-icon:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.desktop-icon:hover .desktop-icon-image {
+  transform: scale(1.04);
+}
+
+.desktop-icon.selected {
+  background: rgba(60, 130, 230, 0.28);
+}
+
+.desktop-icon.selected .desktop-icon-label {
+  background: rgba(45, 105, 210, 0.9);
+  text-shadow: none;
+}
+
+
+
+/* ==========================================
+   macOS Window Scrollbar
+========================================== */
+
+.window-content-scrollbar {
+  scrollbar-width: thin;
+}
+
+/* Chromium / Chrome / Edge */
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
