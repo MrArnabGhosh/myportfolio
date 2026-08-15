@@ -76,4 +76,36 @@ export const apps: AppDefinition[] = [
     icon: "terminal",
     type: "app",
   },
+
+  {
+    id: "safari",
+    name: "Safari",
+    icon: "safari",
+    type: "app",
+  },
+
+  {
+    id: "finder",
+    name: "Finder",
+    icon: "finder",
+    type: "app",
+  },
+  {
+    id: "mail",
+    name: "Mail",
+    icon: "mail",
+    type: "app",
+  },
+  {
+    id: "notes",
+    name: "Notes",
+    icon: "notes",
+    type: "app",
+  },
+  {
+    id: "settings",
+    name: "Settings",
+    icon: "settings",
+    type: "app",
+  },
 ];

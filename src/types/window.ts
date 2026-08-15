@@ -11,6 +11,7 @@ export interface WindowState {
   isMinimized: boolean;
   isMinimizing: boolean;
   isMaximized: boolean;
+  hasBeenOpened: boolean;
 
   zIndex: number;
 

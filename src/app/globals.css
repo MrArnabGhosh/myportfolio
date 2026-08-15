@@ -101,6 +101,13 @@ body {
 
   transform: scale(1.05);
 }
+.portfolio-light .mac-wallpaper {
+  filter: brightness(1.15);
+}
+
+.portfolio-dark .mac-wallpaper {
+  filter: brightness(0.85);
+}
 
 /* Soft wallpaper glow */
 .mac-wallpaper::after {
