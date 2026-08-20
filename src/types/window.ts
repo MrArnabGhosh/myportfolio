@@ -10,6 +10,7 @@ export interface WindowState {
   isOpen: boolean;
   isMinimized: boolean;
   isMinimizing: boolean;
+  isRestoring: boolean;
   isMaximized: boolean;
   hasBeenOpened: boolean;
 

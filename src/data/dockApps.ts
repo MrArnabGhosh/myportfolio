@@ -3,6 +3,14 @@ export interface DockApp {
   name: string;
   description: string;
   icon: string;
+
+  /*
+   * Id of the window this Dock tile controls.
+   * Most tiles match their own id, a few
+   * (Files, AI Assistant) do not.
+   */
+  windowId: string;
+
   type:
     | "finder"
     | "safari"
@@ -18,6 +26,7 @@ export interface DockApp {
 export const dockApps: DockApp[] = [
   {
     id: "finder",
+    windowId: "finder",
     name: "Finder",
     description: "Explore my portfolio",
     icon: "finder",
@@ -26,6 +35,7 @@ export const dockApps: DockApp[] = [
 
   {
     id: "safari",
+    windowId: "safari",
     name: "Safari",
     description: "Explore my web presence",
     icon: "safari",
@@ -34,6 +44,7 @@ export const dockApps: DockApp[] = [
 
   {
     id: "terminal",
+    windowId: "terminal",
     name: "Terminal",
     description: "Developer terminal",
     icon: "terminal",
@@ -42,6 +53,7 @@ export const dockApps: DockApp[] = [
 
   {
     id: "files",
+    windowId: "projects",
     name: "Files",
     description: "Projects, education and experience",
     icon: "files",
@@ -50,6 +62,7 @@ export const dockApps: DockApp[] = [
 
   {
     id: "mail",
+    windowId: "mail",
     name: "Mail",
     description: "Contact me",
     icon: "mail",
@@ -58,6 +71,7 @@ export const dockApps: DockApp[] = [
 
   {
     id: "ai",
+    windowId: "assistant",
     name: "AI Assistant",
     description: "Ask my AI assistant",
     icon: "ai",
@@ -66,6 +80,7 @@ export const dockApps: DockApp[] = [
 
   {
     id: "notes",
+    windowId: "notes",
     name: "Notes",
     description: "Developer notes",
     icon: "notes",
@@ -74,9 +89,31 @@ export const dockApps: DockApp[] = [
 
   {
     id: "settings",
+    windowId: "settings",
     name: "Settings",
     description: "Portfolio settings",
     icon: "settings",
     type: "settings",
   },
 ];
+
+// =======================================================
+// DOCK <-> WINDOW MAPPING
+// =======================================================
+
+export function windowIdForDock(dockId: string) {
+  return (
+    dockApps.find((app) => app.id === dockId)
+      ?.windowId ?? dockId
+  );
+}
+
+export function dockIdForWindow(
+  windowId: string,
+) {
+  return (
+    dockApps.find(
+      (app) => app.windowId === windowId,
+    )?.id ?? null
+  );
+}

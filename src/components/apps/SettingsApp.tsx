@@ -9,9 +9,11 @@ import {
   Volume2,
   Info,
   ChevronRight,
+  RotateCcw,
 } from "lucide-react";
 
 import { usePortfolioSettings } from "@/context/PortfolioSettings";
+import { REPLAY_BOOT_EVENT } from "@/components/desktop/BootScreen";
 
 const wallpapers = [
   {
@@ -425,7 +427,7 @@ export default function SettingsApp() {
 
                 {/* Sound */}
 
-                <div className="flex items-center gap-4 px-5 py-4">
+                <div className="flex items-center gap-4 border-b border-black/5 px-5 py-4">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10">
                     <Volume2 size={18} className="text-orange-600" />
                   </div>
@@ -464,6 +466,47 @@ export default function SettingsApp() {
                         ${sounds ? "left-5.5" : "left-0.5"}
                       `}
                     />
+                  </button>
+                </div>
+
+                {/* Boot screen */}
+
+                <div className="flex items-center gap-4 px-5 py-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
+                    <RotateCcw size={18} className="text-blue-600" />
+                  </div>
+
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Boot screen</p>
+
+                    <p className="mt-1 text-xs text-black/40">
+                      Replay the multilingual hello sequence.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new Event(REPLAY_BOOT_EVENT),
+                      )
+                    }
+                    disabled={!animations}
+                    className="
+                      rounded-full
+                      bg-black/[0.06]
+                      px-4
+                      py-1.5
+                      text-xs
+                      font-medium
+                      text-black/70
+                      transition
+                      hover:bg-black/10
+                      disabled:cursor-not-allowed
+                      disabled:opacity-40
+                    "
+                  >
+                    Replay
                   </button>
                 </div>
               </div>

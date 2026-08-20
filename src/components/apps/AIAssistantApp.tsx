@@ -2,10 +2,13 @@
 
 import {
   Bot,
+  Check,
+  Copy,
   Send,
   Sparkles,
-  User,
+  Square,
   Trash2,
+  User,
 } from "lucide-react";
 
 import {
@@ -14,11 +17,7 @@ import {
   useState,
 } from "react";
 
-type Message = {
-  id: number;
-  role: "assistant" | "user";
-  content: string;
-};
+import { useAssistantChat } from "@/context/AssistantChat";
 
 const suggestions = [
   "Tell me about Arnab",
@@ -27,217 +26,145 @@ const suggestions = [
   "What is Arnab's experience?",
 ];
 
-export default function AIAssistantApp() {
-  const [messages, setMessages] =
-    useState<Message[]>([
-      {
-        id: 1,
-        role: "assistant",
-        content:
-          "Hi! 👋 I'm Arnab's portfolio assistant. How can I help you?",
-      },
-    ]);
+// =======================================================
+// TIME
+// =======================================================
 
-  const [input, setInput] = useState("");
+function formatTime(value: number) {
+  const date = new Date(value);
 
-  const [isTyping, setIsTyping] =
-    useState(false);
+  let hours = date.getHours();
+
+  const minutes = date
+    .getMinutes()
+    .toString()
+    .padStart(2, "0");
+
+  const period = hours >= 12 ? "PM" : "AM";
+
+  hours = hours % 12;
+
+  if (hours === 0) {
+    hours = 12;
+  }
+
+  return `${hours}:${minutes} ${period}`;
+}
+
+interface AIAssistantAppProps {
+  /*
+   * False while the window is minimized. The chat
+   * itself keeps running either way — this only
+   * tells the provider whether replies should
+   * raise a Dock badge.
+   */
+  isVisible?: boolean;
+}
+
+export default function AIAssistantApp({
+  isVisible = true,
+}: AIAssistantAppProps) {
+  const {
+    messages,
+    input,
+    setInput,
+    isStreaming,
+    sendMessage,
+    stopStreaming,
+    clearChat,
+    setAssistantVisible,
+  } = useAssistantChat();
+
+  const [copiedId, setCopiedId] = useState<
+    string | null
+  >(null);
+
+  const scrollRef =
+    useRef<HTMLElement | null>(null);
 
   const messagesEndRef =
     useRef<HTMLDivElement | null>(null);
 
+  const textareaRef =
+    useRef<HTMLTextAreaElement | null>(null);
+
+  const shouldStickToBottom = useRef(true);
+
   // =====================================================
-  // AUTO SCROLL
+  // REPORT VISIBILITY
   // =====================================================
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-  }, [messages, isTyping]);
+    setAssistantVisible(isVisible);
+
+    return () => setAssistantVisible(false);
+  }, [isVisible, setAssistantVisible]);
 
   // =====================================================
-  // SEND MESSAGE - STREAMING
+  // AUTO SCROLL (only when already at the bottom)
   // =====================================================
 
-  const sendMessage = async (text?: string) => {
-    const message = (text ?? input).trim();
-
-    if (!message || isTyping) {
+  useEffect(() => {
+    if (!shouldStickToBottom.current) {
       return;
     }
 
-    const userMessage: Message = {
-      id: Date.now(),
-      role: "user",
-      content: message,
-    };
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages, isStreaming]);
 
-    const history = messages.map((item) => ({
-      role: item.role,
-      content: item.content,
-    }));
+  // =====================================================
+  // JUMP TO LATEST WHEN REOPENED
+  // =====================================================
 
-    setMessages((current) => [
-      ...current,
-      userMessage,
-    ]);
-
-    setInput("");
-    setIsTyping(true);
-
-    const assistantId = Date.now() + 1;
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          message,
-          history,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText =
-          await response.text();
-
-        let errorMessage =
-          "Gemini request failed.";
-
-        try {
-          const errorData =
-            JSON.parse(errorText);
-
-          errorMessage =
-            errorData?.error ||
-            errorMessage;
-        } catch {
-          if (errorText) {
-            errorMessage = errorText;
-          }
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      if (!response.body) {
-        throw new Error(
-          "Streaming is not supported by this response.",
-        );
-      }
-
-      // ---------------------------------------------------
-      // CREATE EMPTY ASSISTANT MESSAGE
-      // ---------------------------------------------------
-
-      setMessages((current) => [
-        ...current,
-        {
-          id: assistantId,
-          role: "assistant",
-          content: "",
-        },
-      ]);
-
-      const reader =
-        response.body.getReader();
-
-      const decoder =
-        new TextDecoder();
-
-      let fullResponse = "";
-
-      // ---------------------------------------------------
-      // READ STREAM
-      // ---------------------------------------------------
-
-      while (true) {
-        const { value, done } =
-          await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        const chunk =
-          decoder.decode(value, {
-            stream: true,
-          });
-
-        fullResponse += chunk;
-
-        setMessages((current) =>
-          current.map((item) =>
-            item.id === assistantId
-              ? {
-                  ...item,
-                  content: fullResponse,
-                }
-              : item,
-          ),
-        );
-      }
-
-      // Flush remaining decoder content
-      const finalChunk =
-        decoder.decode();
-
-      if (finalChunk) {
-        fullResponse += finalChunk;
-
-        setMessages((current) =>
-          current.map((item) =>
-            item.id === assistantId
-              ? {
-                  ...item,
-                  content: fullResponse,
-                }
-              : item,
-          ),
-        );
-      }
-
-      if (!fullResponse.trim()) {
-        setMessages((current) =>
-          current.map((item) =>
-            item.id === assistantId
-              ? {
-                  ...item,
-                  content:
-                    "Gemini returned an empty response.",
-                }
-              : item,
-          ),
-        );
-      }
-    } catch (error) {
-      console.error(
-        "AI Assistant error:",
-        error,
-      );
-
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Something went wrong.";
-
-      setMessages((current) => [
-        ...current,
-        {
-          id: assistantId,
-          role: "assistant",
-          content:
-            `Sorry, I couldn't get an answer right now.\n\n${errorMessage}`,
-        },
-      ]);
-    } finally {
-      setIsTyping(false);
+  useEffect(() => {
+    if (!isVisible) {
+      return;
     }
+
+    shouldStickToBottom.current = true;
+
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "auto",
+    });
+  }, [isVisible]);
+
+  // =====================================================
+  // AUTO GROWING INPUT
+  // =====================================================
+
+  useEffect(() => {
+    const element = textareaRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    element.style.height = "auto";
+
+    element.style.height = `${Math.min(
+      element.scrollHeight,
+      120,
+    )}px`;
+  }, [input]);
+
+  // =====================================================
+  // SCROLL TRACKING
+  // =====================================================
+
+  const handleScroll = () => {
+    const element = scrollRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    shouldStickToBottom.current =
+      element.scrollHeight -
+        element.scrollTop -
+        element.clientHeight <
+      120;
   };
 
   // =====================================================
@@ -254,26 +181,39 @@ export default function AIAssistantApp() {
       event.preventDefault();
 
       sendMessage();
+
+      return;
+    }
+
+    if (event.key === "Escape" && isStreaming) {
+      event.preventDefault();
+
+      stopStreaming();
     }
   };
 
   // =====================================================
-  // CLEAR CHAT
+  // COPY
   // =====================================================
 
-  const clearChat = () => {
-    if (isTyping) {
-      return;
-    }
+  const copyMessage = async (
+    id: string,
+    content: string,
+  ) => {
+    try {
+      await navigator.clipboard.writeText(
+        content,
+      );
 
-    setMessages([
-      {
-        id: Date.now(),
-        role: "assistant",
-        content:
-          "Chat cleared. What would you like to know about Arnab?",
-      },
-    ]);
+      setCopiedId(id);
+
+      window.setTimeout(
+        () => setCopiedId(null),
+        1400,
+      );
+    } catch {
+      /* Clipboard blocked */
+    }
   };
 
   // =====================================================
@@ -306,10 +246,23 @@ export default function AIAssistantApp() {
 
             <div className="mt-0.5 flex items-center gap-1.5">
 
-              <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+              <span
+                className={`
+                  h-1.5
+                  w-1.5
+                  rounded-full
+                  ${
+                    isStreaming
+                      ? "animate-pulse bg-amber-300"
+                      : "bg-green-400"
+                  }
+                `}
+              />
 
               <span className="text-[11px] text-white/35">
-                Online
+                {isStreaming
+                  ? "Thinking…"
+                  : "Online"}
               </span>
 
             </div>
@@ -321,7 +274,6 @@ export default function AIAssistantApp() {
         <button
           type="button"
           onClick={clearChat}
-          disabled={isTyping}
           className="
             flex
             h-8
@@ -333,8 +285,6 @@ export default function AIAssistantApp() {
             transition
             hover:bg-white/10
             hover:text-white
-            disabled:cursor-not-allowed
-            disabled:opacity-30
           "
           title="Clear chat"
         >
@@ -347,7 +297,11 @@ export default function AIAssistantApp() {
           MESSAGES
           ================================================= */}
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+      <main
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-5"
+      >
 
         <div className="mx-auto max-w-2xl space-y-5">
 
@@ -359,7 +313,7 @@ export default function AIAssistantApp() {
             return (
               <div
                 key={message.id}
-                className={`flex gap-3 ${
+                className={`group flex gap-3 ${
                   isUser
                     ? "justify-end"
                     : "justify-start"
@@ -378,20 +332,112 @@ export default function AIAssistantApp() {
                 <div
                   className={`
                     max-w-[78%]
-                    whitespace-pre-wrap
-                    rounded-2xl
-                    px-4
-                    py-3
-                    text-sm
-                    leading-6
                     ${
                       isUser
-                        ? "rounded-br-md bg-white text-black"
-                        : "rounded-bl-md border border-white/10 bg-white/[0.045] text-white/70"
+                        ? "items-end"
+                        : "items-start"
                     }
                   `}
                 >
-                  {message.content}
+
+                  <div
+                    className={`
+                      whitespace-pre-wrap
+                      rounded-2xl
+                      px-4
+                      py-3
+                      text-sm
+                      leading-6
+                      ${
+                        isUser
+                          ? "rounded-br-md bg-white text-black"
+                          : message.isError
+                            ? "rounded-bl-md border border-red-400/30 bg-red-400/[0.07] text-red-100/80"
+                            : "rounded-bl-md border border-white/10 bg-white/[0.045] text-white/70"
+                      }
+                    `}
+                  >
+                    {message.content}
+
+                    {isStreaming &&
+                      !isUser &&
+                      !message.content && (
+                        <span className="text-white/30">
+                          …
+                        </span>
+                      )}
+                  </div>
+
+                  {/* Meta row */}
+
+                  <div
+                    className={`
+                      mt-1
+                      flex
+                      items-center
+                      gap-2
+                      px-1
+                      text-[10px]
+                      text-white/25
+                      ${
+                        isUser
+                          ? "justify-end"
+                          : "justify-start"
+                      }
+                    `}
+                  >
+
+                    {message.createdAt > 0 && (
+                      <span>
+                        {formatTime(
+                          message.createdAt,
+                        )}
+                      </span>
+                    )}
+
+                    {!isUser &&
+                      message.content && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyMessage(
+                              message.id,
+                              message.content,
+                            )
+                          }
+                          title="Copy reply"
+                          className="
+                            flex
+                            items-center
+                            gap-1
+                            rounded
+                            px-1
+                            py-0.5
+                            opacity-0
+                            transition
+                            hover:bg-white/10
+                            hover:text-white/70
+                            focus:opacity-100
+                            group-hover:opacity-100
+                          "
+                        >
+                          {copiedId ===
+                          message.id ? (
+                            <>
+                              <Check size={11} />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={11} />
+                              Copy
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                  </div>
+
                 </div>
 
                 {isUser && (
@@ -411,7 +457,7 @@ export default function AIAssistantApp() {
               TYPING
               ================================================= */}
 
-          {isTyping &&
+          {isStreaming &&
             messages[
               messages.length - 1
             ]?.role === "user" && (
@@ -463,7 +509,7 @@ export default function AIAssistantApp() {
           SUGGESTIONS
           ================================================= */}
 
-      {messages.length === 1 && (
+      {messages.length <= 1 && (
         <div className="shrink-0 px-5 pb-3">
 
           <div className="mx-auto max-w-2xl">
@@ -481,10 +527,9 @@ export default function AIAssistantApp() {
                     key={suggestion}
                     type="button"
                     onClick={() =>
-                      sendMessage(
-                        suggestion,
-                      )
+                      sendMessage(suggestion)
                     }
+                    disabled={isStreaming}
                     className="
                       rounded-full
                       border
@@ -498,6 +543,8 @@ export default function AIAssistantApp() {
                       hover:border-white/20
                       hover:bg-white/[0.08]
                       hover:text-white
+                      disabled:cursor-not-allowed
+                      disabled:opacity-40
                     "
                   >
                     {suggestion}
@@ -523,6 +570,7 @@ export default function AIAssistantApp() {
           <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.045] p-2 focus-within:border-white/20">
 
             <textarea
+              ref={textareaRef}
               value={input}
               onChange={(event) =>
                 setInput(event.target.value)
@@ -530,7 +578,6 @@ export default function AIAssistantApp() {
               onKeyDown={handleKeyDown}
               placeholder="Ask me about Arnab..."
               rows={1}
-              disabled={isTyping}
               className="
                 max-h-28
                 min-h-10
@@ -543,43 +590,67 @@ export default function AIAssistantApp() {
                 text-white
                 outline-none
                 placeholder:text-white/25
-                disabled:opacity-50
               "
             />
 
-            <button
-              type="button"
-              onClick={() =>
-                sendMessage()
-              }
-              disabled={
-                !input.trim() ||
-                isTyping
-              }
-              className="
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                bg-white
-                text-black
-                transition
-                hover:bg-white/90
-                disabled:cursor-not-allowed
-                disabled:opacity-20
-              "
-              title="Send"
-            >
-              <Send size={16} />
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={stopStreaming}
+                className="
+                  flex
+                  h-10
+                  w-10
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  border
+                  border-white/15
+                  bg-white/10
+                  text-white
+                  transition
+                  hover:bg-white/20
+                "
+                title="Stop generating (Esc)"
+              >
+                <Square
+                  size={13}
+                  fill="currentColor"
+                />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => sendMessage()}
+                disabled={!input.trim()}
+                className="
+                  flex
+                  h-10
+                  w-10
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-white
+                  text-black
+                  transition
+                  hover:bg-white/90
+                  disabled:cursor-not-allowed
+                  disabled:opacity-20
+                "
+                title="Send"
+              >
+                <Send size={16} />
+              </button>
+            )}
 
           </div>
 
           <p className="mt-2 text-center text-[10px] text-white/20">
-            Arnab&apos;s Portfolio Assistant
+            {isStreaming
+              ? "Replying — you can minimize this window, the answer keeps coming."
+              : "Arnab's Portfolio Assistant"}
           </p>
 
         </div>

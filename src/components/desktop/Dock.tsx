@@ -11,16 +11,50 @@ import {
   Search,
 } from "lucide-react";
 
-import { dockApps } from "@/data/dockApps";
+import { dockApps, windowIdForDock } from "@/data/dockApps";
+
+interface MinimizedWindow {
+  id: string;
+  title: string;
+}
 
 interface DockProps {
   onOpenApp: (id: string) => void;
+
+  /* Every open app — minimized ones included */
   runningApps?: string[];
+
+  /* Open, but tucked away in the Dock */
+  minimizedApps?: string[];
+
+  /* Unread notifications per Dock id */
+  badges?: Record<string, number>;
+
+  /* Apps doing work in the background */
+  busyApps?: string[];
+
+  /* Snapshot of a window's content, keyed by window id */
+  thumbnails?: Record<string, string>;
+
+  /*
+   * Minimized windows with no pinned Dock tile of
+   * their own (e.g. project detail windows). Shown
+   * as extra tiles after the pinned apps.
+   */
+  minimizedWindows?: MinimizedWindow[];
+
+  onRestoreWindow?: (id: string) => void;
 }
 
 export default function Dock({
   onOpenApp,
   runningApps = [],
+  minimizedApps = [],
+  badges = {},
+  busyApps = [],
+  thumbnails = {},
+  minimizedWindows = [],
+  onRestoreWindow,
 }: DockProps) {
   const getIcon = (id: string) => {
     switch (id) {
@@ -341,7 +375,20 @@ export default function Dock({
         "
       >
         {dockApps.map((app, index) => {
-          const isRunning = runningApps.includes(app.id);
+          const isRunning = runningApps.includes(
+            app.id,
+          );
+
+          const isMinimized =
+            minimizedApps.includes(app.id);
+
+          const isBusy = busyApps.includes(app.id);
+
+          const badgeCount = badges[app.id] ?? 0;
+
+          const thumbnail = isMinimized
+            ? thumbnails[windowIdForDock(app.id)]
+            : undefined;
 
           return (
             <div
@@ -364,8 +411,13 @@ export default function Dock({
 
               <button
                 type="button"
+                data-dock-id={app.id}
                 onClick={() => onOpenApp(app.id)}
-                aria-label={app.name}
+                aria-label={
+                  isMinimized
+                    ? `${app.name} (minimized)`
+                    : app.name
+                }
                 className="
                   dock-item
                   group
@@ -385,7 +437,21 @@ export default function Dock({
                   focus:outline-none
                 "
               >
-                {getIcon(app.id)}
+                {thumbnail ? (
+                  <img
+                    src={thumbnail}
+                    alt=""
+                    className="
+                      h-12
+                      w-12
+                      rounded-[13px]
+                      object-cover
+                      shadow-[0_4px_10px_rgba(0,0,0,0.35)]
+                    "
+                  />
+                ) : (
+                  getIcon(app.id)
+                )}
 
                 {/* Tooltip */}
 
@@ -415,25 +481,206 @@ export default function Dock({
                   "
                 >
                   {app.name}
+
+                  {isMinimized && (
+                    <span className="text-white/40">
+                      {" — minimized"}
+                    </span>
+                  )}
                 </span>
 
+                {/* Notification badge */}
+
+                {badgeCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="
+                      pointer-events-none
+                      absolute
+                      -right-0.5
+                      top-0
+                      flex
+                      h-[18px]
+                      min-w-[18px]
+                      items-center
+                      justify-center
+                      rounded-full
+                      border
+                      border-black/20
+                      bg-[#ff453a]
+                      px-1
+                      text-[10px]
+                      font-semibold
+                      leading-none
+                      text-white
+                      shadow-[0_2px_6px_rgba(0,0,0,0.45)]
+                    "
+                  >
+                    {badgeCount > 9
+                      ? "9+"
+                      : badgeCount}
+                  </span>
+                )}
+
                 {/* Running indicator */}
+                {/*
+                    solid  → window on screen
+                    hollow → minimized into the Dock
+                    pulse  → working in the background
+                */}
 
                 {isRunning && (
                   <span
-                    className="
+                    className={`
                       absolute
                       -bottom-1
                       left-1/2
-                      h-1
-                      w-1
+                      h-1.5
+                      w-1.5
                       -translate-x-1/2
                       rounded-full
-                      bg-white
                       shadow-[0_0_5px_rgba(255,255,255,0.8)]
-                    "
+
+                      ${
+                        isMinimized
+                          ? "border border-white/80 bg-white/25"
+                          : "bg-white"
+                      }
+
+                      ${isBusy ? "animate-pulse" : ""}
+                    `}
                   />
                 )}
+              </button>
+            </div>
+          );
+        })}
+
+        {/* Minimized windows without a pinned Dock tile
+            of their own (e.g. project detail windows) */}
+
+        {minimizedWindows.length > 0 && (
+          <div className="mx-1.5 mb-1 h-9 w-px bg-white/20" />
+        )}
+
+        {minimizedWindows.map((minimizedWindow) => {
+          const thumbnail = thumbnails[minimizedWindow.id];
+
+          return (
+            <div
+              key={minimizedWindow.id}
+              className="relative flex items-end"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  onRestoreWindow?.(minimizedWindow.id)
+                }
+                aria-label={`${minimizedWindow.title} (minimized)`}
+                className="
+                  dock-item
+                  group
+                  relative
+                  flex
+                  h-14
+                  w-14
+                  cursor-pointer
+                  items-center
+                  justify-center
+                  rounded-2xl
+                  transition-all
+                  duration-200
+                  ease-out
+                  hover:-translate-y-3
+                  hover:scale-[1.18]
+                  focus:outline-none
+                "
+              >
+                {thumbnail ? (
+                  <img
+                    src={thumbnail}
+                    alt=""
+                    className="
+                      h-12
+                      w-12
+                      rounded-[13px]
+                      object-cover
+                      shadow-[0_4px_10px_rgba(0,0,0,0.35)]
+                    "
+                  />
+                ) : (
+                  <div
+                    className="
+                      flex
+                      h-12
+                      w-12
+                      items-center
+                      justify-center
+                      rounded-[13px]
+                      bg-white/10
+                    "
+                  >
+                    <FileText
+                      size={27}
+                      strokeWidth={1.6}
+                      className="text-white/70"
+                    />
+                  </div>
+                )}
+
+                {/* Tooltip */}
+
+                <span
+                  className="
+                    pointer-events-none
+                    absolute
+                    -top-11
+                    left-1/2
+                    -translate-x-1/2
+                    whitespace-nowrap
+                    rounded-lg
+                    border
+                    border-white/10
+                    bg-black/75
+                    px-2.5
+                    py-1.5
+                    text-[11px]
+                    font-medium
+                    text-white
+                    opacity-0
+                    shadow-xl
+                    backdrop-blur-xl
+                    transition-opacity
+                    duration-150
+                    group-hover:opacity-100
+                  "
+                >
+                  {minimizedWindow.title}
+
+                  <span className="text-white/40">
+                    {" — minimized"}
+                  </span>
+                </span>
+
+                {/* Running indicator — always hollow,
+                    since this tile only exists while
+                    minimized */}
+
+                <span
+                  className="
+                    absolute
+                    -bottom-1
+                    left-1/2
+                    h-1.5
+                    w-1.5
+                    -translate-x-1/2
+                    rounded-full
+                    border
+                    border-white/80
+                    bg-white/25
+                    shadow-[0_0_5px_rgba(255,255,255,0.8)]
+                  "
+                />
               </button>
             </div>
           );
