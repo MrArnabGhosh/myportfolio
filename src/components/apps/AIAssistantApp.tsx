@@ -27,65 +27,6 @@ const suggestions = [
   "What is Arnab's experience?",
 ];
 
-function getResponse(message: string) {
-  const text = message.toLowerCase();
-
-  if (
-    text.includes("who") ||
-    text.includes("about") ||
-    text.includes("arnab")
-  ) {
-    return `Hi! I'm Arnab's portfolio assistant. Arnab Ghosh is a Software Engineer from Kolkata, India, with a B.Tech background in Computer Science and Engineering, specializing in Cyber Security. He works across full-stack development, backend engineering and cloud technologies.`;
-  }
-
-  if (
-    text.includes("skill") ||
-    text.includes("technology") ||
-    text.includes("tech stack")
-  ) {
-    return `Arnab's technical skills include Java, Python, C/C++, JavaScript, TypeScript, React, Next.js, Node.js, Express.js, Django, REST APIs, MongoDB, PostgreSQL, SQL, AWS, Git/GitHub and Linux. He also has a strong foundation in DSA, DBMS, Operating Systems and Computer Networks.`;
-  }
-
-  if (
-    text.includes("project") ||
-    text.includes("projects")
-  ) {
-    return `Some of Arnab's key projects include CloudKeep, an AI Resume Builder, an AI Blog application, and a Secure Voting System built with Django and MongoDB.`;
-  }
-
-  if (
-    text.includes("experience") ||
-    text.includes("internship")
-  ) {
-    return `Arnab has internship experience in Cloud Computing and Backend Development. His experience includes AWS services such as EC2, S3 and IAM, as well as Django, MongoDB, authentication and backend application development.`;
-  }
-
-  if (
-    text.includes("contact") ||
-    text.includes("email") ||
-    text.includes("hire")
-  ) {
-    return `You can contact Arnab through the Mail application in this portfolio. His email is ghosharnab460@gmail.com.`;
-  }
-
-  if (
-    text.includes("aws") ||
-    text.includes("cloud")
-  ) {
-    return `Arnab has hands-on cloud experience with AWS, particularly EC2, S3 and IAM. He has worked on deploying and managing secure, scalable cloud applications.`;
-  }
-
-  if (
-    text.includes("hello") ||
-    text.includes("hi") ||
-    text.includes("hey")
-  ) {
-    return `Hey! 👋 I'm Arnab's AI portfolio assistant. Ask me about his skills, projects, experience, education or how to contact him.`;
-  }
-
-  return `I can tell you about Arnab's skills, projects, experience, education and contact information. Try asking something like "What projects has Arnab built?"`;
-}
-
 export default function AIAssistantApp() {
   const [messages, setMessages] =
     useState<Message[]>([
@@ -97,8 +38,7 @@ export default function AIAssistantApp() {
       },
     ]);
 
-  const [input, setInput] =
-    useState("");
+  const [input, setInput] = useState("");
 
   const [isTyping, setIsTyping] =
     useState(false);
@@ -117,12 +57,11 @@ export default function AIAssistantApp() {
   }, [messages, isTyping]);
 
   // =====================================================
-  // SEND MESSAGE
+  // SEND MESSAGE - STREAMING
   // =====================================================
 
-  const sendMessage = (text?: string) => {
-    const message =
-      (text ?? input).trim();
+  const sendMessage = async (text?: string) => {
+    const message = (text ?? input).trim();
 
     if (!message || isTyping) {
       return;
@@ -134,6 +73,11 @@ export default function AIAssistantApp() {
       content: message,
     };
 
+    const history = messages.map((item) => ({
+      role: item.role,
+      content: item.content,
+    }));
+
     setMessages((current) => [
       ...current,
       userMessage,
@@ -142,21 +86,158 @@ export default function AIAssistantApp() {
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI thinking
-    setTimeout(() => {
-      const response: Message = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content: getResponse(message),
-      };
+    const assistantId = Date.now() + 1;
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          message,
+          history,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText =
+          await response.text();
+
+        let errorMessage =
+          "Gemini request failed.";
+
+        try {
+          const errorData =
+            JSON.parse(errorText);
+
+          errorMessage =
+            errorData?.error ||
+            errorMessage;
+        } catch {
+          if (errorText) {
+            errorMessage = errorText;
+          }
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      if (!response.body) {
+        throw new Error(
+          "Streaming is not supported by this response.",
+        );
+      }
+
+      // ---------------------------------------------------
+      // CREATE EMPTY ASSISTANT MESSAGE
+      // ---------------------------------------------------
 
       setMessages((current) => [
         ...current,
-        response,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+        },
       ]);
 
+      const reader =
+        response.body.getReader();
+
+      const decoder =
+        new TextDecoder();
+
+      let fullResponse = "";
+
+      // ---------------------------------------------------
+      // READ STREAM
+      // ---------------------------------------------------
+
+      while (true) {
+        const { value, done } =
+          await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        const chunk =
+          decoder.decode(value, {
+            stream: true,
+          });
+
+        fullResponse += chunk;
+
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === assistantId
+              ? {
+                  ...item,
+                  content: fullResponse,
+                }
+              : item,
+          ),
+        );
+      }
+
+      // Flush remaining decoder content
+      const finalChunk =
+        decoder.decode();
+
+      if (finalChunk) {
+        fullResponse += finalChunk;
+
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === assistantId
+              ? {
+                  ...item,
+                  content: fullResponse,
+                }
+              : item,
+          ),
+        );
+      }
+
+      if (!fullResponse.trim()) {
+        setMessages((current) =>
+          current.map((item) =>
+            item.id === assistantId
+              ? {
+                  ...item,
+                  content:
+                    "Gemini returned an empty response.",
+                }
+              : item,
+          ),
+        );
+      }
+    } catch (error) {
+      console.error(
+        "AI Assistant error:",
+        error,
+      );
+
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Something went wrong.";
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: assistantId,
+          role: "assistant",
+          content:
+            `Sorry, I couldn't get an answer right now.\n\n${errorMessage}`,
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 700);
+    }
   };
 
   // =====================================================
@@ -171,6 +252,7 @@ export default function AIAssistantApp() {
       !event.shiftKey
     ) {
       event.preventDefault();
+
       sendMessage();
     }
   };
@@ -180,6 +262,10 @@ export default function AIAssistantApp() {
   // =====================================================
 
   const clearChat = () => {
+    if (isTyping) {
+      return;
+    }
+
     setMessages([
       {
         id: Date.now(),
@@ -189,6 +275,10 @@ export default function AIAssistantApp() {
       },
     ]);
   };
+
+  // =====================================================
+  // RENDER
+  // =====================================================
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#0b0b0d] text-white">
@@ -209,17 +299,21 @@ export default function AIAssistantApp() {
           </div>
 
           <div>
+
             <h1 className="text-sm font-semibold">
               AI Assistant
             </h1>
 
             <div className="mt-0.5 flex items-center gap-1.5">
+
               <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
 
               <span className="text-[11px] text-white/35">
                 Online
               </span>
+
             </div>
+
           </div>
 
         </div>
@@ -227,6 +321,7 @@ export default function AIAssistantApp() {
         <button
           type="button"
           onClick={clearChat}
+          disabled={isTyping}
           className="
             flex
             h-8
@@ -238,6 +333,8 @@ export default function AIAssistantApp() {
             transition
             hover:bg-white/10
             hover:text-white
+            disabled:cursor-not-allowed
+            disabled:opacity-30
           "
           title="Clear chat"
         >
@@ -255,6 +352,7 @@ export default function AIAssistantApp() {
         <div className="mx-auto max-w-2xl space-y-5">
 
           {messages.map((message) => {
+
             const isUser =
               message.role === "user";
 
@@ -280,6 +378,7 @@ export default function AIAssistantApp() {
                 <div
                   className={`
                     max-w-[78%]
+                    whitespace-pre-wrap
                     rounded-2xl
                     px-4
                     py-3
@@ -308,44 +407,51 @@ export default function AIAssistantApp() {
             );
           })}
 
-          {/* Typing */}
+          {/* =================================================
+              TYPING
+              ================================================= */}
 
-          {isTyping && (
-            <div className="flex items-center gap-3">
+          {isTyping &&
+            messages[
+              messages.length - 1
+            ]?.role === "user" && (
+              <div className="flex items-center gap-3">
 
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10">
-                <Sparkles
-                  size={15}
-                  className="text-white/70"
-                />
-              </div>
-
-              <div className="rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.045] px-4 py-3">
-
-                <div className="flex gap-1">
-
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40" />
-
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40"
-                    style={{
-                      animationDelay: "120ms",
-                    }}
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10">
+                  <Sparkles
+                    size={15}
+                    className="text-white/70"
                   />
+                </div>
 
-                  <span
-                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40"
-                    style={{
-                      animationDelay: "240ms",
-                    }}
-                  />
+                <div className="rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.045] px-4 py-3">
+
+                  <div className="flex gap-1">
+
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40" />
+
+                    <span
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40"
+                      style={{
+                        animationDelay:
+                          "120ms",
+                      }}
+                    />
+
+                    <span
+                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-white/40"
+                      style={{
+                        animationDelay:
+                          "240ms",
+                      }}
+                    />
+
+                  </div>
 
                 </div>
 
               </div>
-
-            </div>
-          )}
+            )}
 
           <div ref={messagesEndRef} />
 
@@ -424,6 +530,7 @@ export default function AIAssistantApp() {
               onKeyDown={handleKeyDown}
               placeholder="Ask me about Arnab..."
               rows={1}
+              disabled={isTyping}
               className="
                 max-h-28
                 min-h-10
@@ -436,12 +543,15 @@ export default function AIAssistantApp() {
                 text-white
                 outline-none
                 placeholder:text-white/25
+                disabled:opacity-50
               "
             />
 
             <button
               type="button"
-              onClick={() => sendMessage()}
+              onClick={() =>
+                sendMessage()
+              }
               disabled={
                 !input.trim() ||
                 isTyping

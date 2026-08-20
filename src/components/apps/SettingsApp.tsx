@@ -13,7 +13,6 @@ import {
 
 import { usePortfolioSettings } from "@/context/PortfolioSettings";
 
-<<<<<<< HEAD
 const wallpapers = [
   {
     id: "default",
@@ -39,27 +38,16 @@ const wallpapers = [
 
 export default function SettingsApp() {
   const {
-  appearance,
-  setAppearance,
-  animations,
-  setAnimations,
-  sounds,
-  setSounds,
-  playSound,
-  wallpaper,
-  setWallpaper,
-} = usePortfolioSettings();
-=======
-export default function SettingsApp() {
-  const {
     appearance,
     setAppearance,
     animations,
     setAnimations,
     sounds,
     setSounds,
+    playSound,
+    wallpaper,
+    setWallpaper,
   } = usePortfolioSettings();
->>>>>>> e5f1f630588a3f885cfa3da93d30e191c219a889
 
   return (
     <div className="flex h-full min-h-full overflow-hidden bg-[#f5f5f7] text-black">
@@ -477,10 +465,6 @@ export default function SettingsApp() {
                       `}
                     />
                   </button>
-<<<<<<< HEAD
-                  
-=======
->>>>>>> e5f1f630588a3f885cfa3da93d30e191c219a889
                 </div>
               </div>
             </section>

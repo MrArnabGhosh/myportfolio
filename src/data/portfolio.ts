@@ -19,7 +19,7 @@ export const portfolioData = {
     specialization:
       "Cyber Security",
 
-    expectedGraduation: "2026",
+    Graduated: "July 2026",
   },
 
   skills: {

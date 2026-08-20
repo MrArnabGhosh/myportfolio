@@ -27,10 +27,7 @@ import FinderApp from "@/components/apps/FinderApp";
 import MailApp from "@/components/apps/MailApp";
 import NotesApp from "@/components/apps/NotesApp";
 import SettingsApp from "@/components/apps/SettingsApp";
-<<<<<<< HEAD
 import AIAssistantApp from "@/components/apps/AIAssistantApp";
-=======
->>>>>>> e5f1f630588a3f885cfa3da93d30e191c219a889
 
 import { usePortfolioSettings } from "@/context/PortfolioSettings";
 
