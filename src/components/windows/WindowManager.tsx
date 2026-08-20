@@ -210,18 +210,17 @@ export default function WindowManager() {
       return;
     }
 
-    import("html2canvas")
-      .then(({ default: html2canvas }) =>
-        html2canvas(frame, {
-          backgroundColor: null,
-          scale: 0.3,
-          logging: false,
+    import("html-to-image")
+      .then(({ toPng }) =>
+        toPng(frame, {
+          pixelRatio: 0.3,
+          skipFonts: true,
         }),
       )
-      .then((canvas) => {
+      .then((dataUrl) => {
         setThumbnails((current) => ({
           ...current,
-          [id]: canvas.toDataURL("image/png"),
+          [id]: dataUrl,
         }));
       })
       .catch(() => {
