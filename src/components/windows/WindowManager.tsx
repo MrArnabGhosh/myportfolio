@@ -2,7 +2,12 @@
 
 import Dock from "@/components/desktop/Dock";
 
-import { useCallback, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import Window from "../windows/window";
 
@@ -30,6 +35,27 @@ import SettingsApp from "@/components/apps/SettingsApp";
 import AIAssistantApp from "@/components/apps/AIAssistantApp";
 
 import { usePortfolioSettings } from "@/context/PortfolioSettings";
+import { useAssistantChat } from "@/context/AssistantChat";
+
+import {
+  dockIdForWindow,
+  windowIdForDock,
+} from "@/data/dockApps";
+
+// =======================================================
+// WINDOW IDS → DOCK IDS
+// =======================================================
+
+function toDockIds(windowList: WindowState[]) {
+  return windowList
+    .map((currentWindow) =>
+      dockIdForWindow(currentWindow.id),
+    )
+    .filter(
+      (dockId): dockId is string =>
+        dockId !== null,
+    );
+}
 
 export default function WindowManager() {
   // =====================================================
@@ -39,11 +65,32 @@ export default function WindowManager() {
   const { playSound } = usePortfolioSettings();
 
   // =====================================================
+  // AI ASSISTANT (runs in the background)
+  // =====================================================
+
+  const {
+    unreadCount: assistantUnreadCount,
+    isStreaming: assistantIsStreaming,
+  } = useAssistantChat();
+
+  // =====================================================
   // WINDOW SIZE
   // =====================================================
 
   const WINDOW_WIDTH = 900;
   const WINDOW_HEIGHT = 600;
+
+  // =====================================================
+  // GENIE ANIMATION DURATIONS
+  // =====================================================
+  //
+  // Must stay in sync with the keyframes in
+  // globals.css (.window-minimizing / .window-restoring).
+  //
+  // =====================================================
+
+  const MINIMIZE_DURATION = 450;
+  const RESTORE_DURATION = 420;
 
   // =====================================================
   // CENTER POSITION
@@ -114,6 +161,7 @@ export default function WindowManager() {
       isOpen: false,
       isMinimized: false,
       isMinimizing: false,
+      isRestoring: false,
       isMaximized: false,
 
       /*
@@ -140,6 +188,141 @@ export default function WindowManager() {
   const [highestZIndex, setHighestZIndex] = useState(10);
 
   // =====================================================
+  // MINIMIZED WINDOW THUMBNAILS
+  // =====================================================
+  //
+  // A snapshot of each window's content, taken the
+  // instant it's minimized, so the Dock can show a
+  // small preview instead of (or alongside) its icon.
+  //
+  // =====================================================
+
+  const [thumbnails, setThumbnails] = useState<
+    Record<string, string>
+  >({});
+
+  const captureThumbnail = useCallback((id: string) => {
+    const frame = document.querySelector(
+      `[data-window-id="${id}"] .mac-window`,
+    ) as HTMLElement | null;
+
+    if (!frame) {
+      return;
+    }
+
+    import("html-to-image")
+      .then(({ toPng }) =>
+        toPng(frame, {
+          pixelRatio: 0.3,
+          skipFonts: true,
+        }),
+      )
+      .then((dataUrl) => {
+        setThumbnails((current) => ({
+          ...current,
+          [id]: dataUrl,
+        }));
+      })
+      .catch(() => {
+        /* Preview is a nice-to-have — fall back to the icon. */
+      });
+  }, []);
+
+  // =====================================================
+  // LATEST WINDOWS (for handlers that must read
+  // the current state without re-creating themselves)
+  // =====================================================
+
+  const windowsRef = useRef<WindowState[]>(windows);
+
+  useEffect(() => {
+    windowsRef.current = windows;
+  }, [windows]);
+
+  // =====================================================
+  // DOCK GENIE TRANSFORM
+  // =====================================================
+  //
+  // Measures the real window frame and the Dock tile
+  // that owns it, so a window sucks into (and springs
+  // back out of) its own icon — like macOS.
+  //
+  // =====================================================
+
+  const getDockTransform = useCallback((id: string) => {
+    const frame = document.querySelector(
+      `[data-window-id="${id}"] .mac-window`,
+    ) as HTMLElement | null;
+
+    if (!frame) {
+      return null;
+    }
+
+    const dockId = dockIdForWindow(id);
+
+    const dockTile = dockId
+      ? (document.querySelector(
+          `[data-dock-id="${dockId}"]`,
+        ) as HTMLElement | null)
+      : null;
+
+    const target =
+      dockTile ??
+      document.getElementById("portfolio-dock");
+
+    if (!target) {
+      return null;
+    }
+
+    /*
+     * A genie animation may still be running on the
+     * frame (minimize clicked, then the Dock clicked
+     * straight away). Measuring while transformed
+     * would give a shrunken rect, so the animation
+     * is muted for the measurement only.
+     */
+
+    const previousAnimation = frame.style.animation;
+
+    frame.style.animation = "none";
+
+    const frameRect = frame.getBoundingClientRect();
+
+    frame.style.animation = previousAnimation;
+
+    const targetRect = target.getBoundingClientRect();
+
+    if (!frameRect.width || !frameRect.height) {
+      return null;
+    }
+
+    const scale = Math.min(
+      0.16,
+      Math.max(
+        0.05,
+        targetRect.width / frameRect.width,
+      ),
+    );
+
+    const translateX =
+      targetRect.left +
+      targetRect.width / 2 -
+      (frameRect.left + frameRect.width / 2);
+
+    const translateY =
+      targetRect.top +
+      targetRect.height / 2 -
+      (frameRect.top + frameRect.height / 2);
+
+    frame.style.setProperty(
+      "--minimize-transform",
+      `translate(${translateX}px, ${translateY}px) scale(${scale})`,
+    );
+
+    return frame;
+  }, []);
+
+  // =====================================================
   // CLOSE WINDOW
   // =====================================================
 
@@ -153,6 +336,7 @@ export default function WindowManager() {
               isOpen: false,
               isMinimized: false,
               isMinimizing: false,
+              isRestoring: false,
               isMaximized: false,
 
               /*
@@ -165,120 +349,97 @@ export default function WindowManager() {
           : currentWindow,
       ),
     );
+
+    setThumbnails((current) => {
+      if (!(id in current)) {
+        return current;
+      }
+
+      const next = { ...current };
+
+      delete next[id];
+
+      return next;
+    });
   }, []);
 
   // =====================================================
   // MINIMIZE WINDOW
   // =====================================================
+  //
+  // The window is NOT unmounted. It plays the genie
+  // animation into its Dock tile and is then hidden,
+  // so the app keeps running in the background with
+  // its scroll position and state intact.
+  //
+  // =====================================================
 
-  const minimizeWindow = useCallback((id: string) => {
-    const windowElement = document.querySelector(
-      `[data-window-id="${id}"]`,
-    ) as HTMLElement | null;
+  const minimizeWindow = useCallback(
+    (id: string) => {
+      captureThumbnail(id);
 
-    const dockElement = document.getElementById("portfolio-dock");
+      const frame = getDockTransform(id);
 
-    // -------------------------------------------------
-    // FALLBACK
-    // -------------------------------------------------
+      // -------------------------------------------------
+      // FALLBACK (no frame / no dock on screen)
+      // -------------------------------------------------
 
-    if (!windowElement || !dockElement) {
+      if (!frame) {
+        setWindows((currentWindows) =>
+          currentWindows.map((currentWindow) =>
+            currentWindow.id === id
+              ? {
+                  ...currentWindow,
+
+                  isMinimized: true,
+                  isMinimizing: false,
+                  isRestoring: false,
+                }
+              : currentWindow,
+          ),
+        );
+
+        return;
+      }
+
+      // -------------------------------------------------
+      // START ANIMATION
+      // -------------------------------------------------
+
       setWindows((currentWindows) =>
         currentWindows.map((currentWindow) =>
           currentWindow.id === id
             ? {
                 ...currentWindow,
 
-                isMinimized: true,
-                isMinimizing: false,
+                isMinimizing: true,
+                isRestoring: false,
               }
             : currentWindow,
         ),
       );
 
-      return;
-    }
+      // -------------------------------------------------
+      // FINISH ANIMATION
+      // -------------------------------------------------
 
-    // -------------------------------------------------
-    // WINDOW RECT
-    // -------------------------------------------------
+      setTimeout(() => {
+        setWindows((currentWindows) =>
+          currentWindows.map((currentWindow) =>
+            currentWindow.id === id
+              ? {
+                  ...currentWindow,
 
-    const windowRect = windowElement.getBoundingClientRect();
-
-    // -------------------------------------------------
-    // DOCK RECT
-    // -------------------------------------------------
-
-    const dockRect = dockElement.getBoundingClientRect();
-
-    // -------------------------------------------------
-    // WINDOW CENTER
-    // -------------------------------------------------
-
-    const windowCenterX = windowRect.left + windowRect.width / 2;
-
-    const windowCenterY = windowRect.top + windowRect.height / 2;
-
-    // -------------------------------------------------
-    // DOCK CENTER
-    // -------------------------------------------------
-
-    const dockCenterX = dockRect.left + dockRect.width / 2;
-
-    const dockCenterY = dockRect.top + dockRect.height / 2;
-
-    // -------------------------------------------------
-    // MOVEMENT
-    // -------------------------------------------------
-
-    const translateX = dockCenterX - windowCenterX;
-
-    const translateY = dockCenterY - windowCenterY;
-
-    // -------------------------------------------------
-    // MINIMIZE TRANSFORM
-    // -------------------------------------------------
-
-    windowElement.style.setProperty(
-      "--minimize-transform",
-      `translate(${translateX}px, ${translateY}px) scale(0.1)`,
-    );
-
-    // -------------------------------------------------
-    // START ANIMATION
-    // -------------------------------------------------
-
-    setWindows((currentWindows) =>
-      currentWindows.map((currentWindow) =>
-        currentWindow.id === id
-          ? {
-              ...currentWindow,
-
-              isMinimizing: true,
-            }
-          : currentWindow,
-      ),
-    );
-
-    // -------------------------------------------------
-    // FINISH ANIMATION
-    // -------------------------------------------------
-
-    setTimeout(() => {
-      setWindows((currentWindows) =>
-        currentWindows.map((currentWindow) =>
-          currentWindow.id === id
-            ? {
-                ...currentWindow,
-
-                isMinimizing: false,
-                isMinimized: true,
-              }
-            : currentWindow,
-        ),
-      );
-    }, 450);
-  }, []);
+                  isMinimizing: false,
+                  isMinimized: true,
+                }
+              : currentWindow,
+          ),
+        );
+      }, MINIMIZE_DURATION);
+    },
+    [captureThumbnail, getDockTransform, MINIMIZE_DURATION],
+  );
 
   // =====================================================
   // MAXIMIZE / RESTORE
@@ -358,6 +519,45 @@ export default function WindowManager() {
        */
       playSound();
 
+      // -------------------------------------------------
+      // RESTORING FROM THE DOCK?
+      // -------------------------------------------------
+
+      const target = windowsRef.current.find(
+        (currentWindow) => currentWindow.id === id,
+      );
+
+      const isReturningFromDock = Boolean(
+        target?.isOpen &&
+          (target.isMinimized || target.isMinimizing),
+      );
+
+      /*
+       * Prime the genie transform while the window is
+       * still hidden, so the restore animation starts
+       * from the Dock tile.
+       */
+
+      const isGenieReady =
+        isReturningFromDock &&
+        Boolean(getDockTransform(id));
+
+      if (isGenieReady) {
+        setTimeout(() => {
+          setWindows((currentWindows) =>
+            currentWindows.map((currentWindow) =>
+              currentWindow.id === id
+                ? {
+                    ...currentWindow,
+
+                    isRestoring: false,
+                  }
+                : currentWindow,
+            ),
+          );
+        }, RESTORE_DURATION);
+      }
+
       setHighestZIndex((currentZIndex) => {
         const newZIndex = currentZIndex + 1;
 
@@ -425,6 +625,7 @@ export default function WindowManager() {
                   isOpen: true,
                   isMinimized: false,
                   isMinimizing: false,
+                  isRestoring: isGenieReady,
 
                   hasBeenOpened: true,
 
@@ -439,7 +640,13 @@ export default function WindowManager() {
         return newZIndex;
       });
     },
-    [playSound, getCenteredPosition, getCascadePosition],
+    [
+      playSound,
+      getCenteredPosition,
+      getCascadePosition,
+      getDockTransform,
+      RESTORE_DURATION,
+    ],
   );
 
   // =====================================================
@@ -448,8 +655,6 @@ export default function WindowManager() {
 
   const openProjectWindow = useCallback(
     (projectId: string) => {
-      playSound();
-
       const project = projects.find((item) => item.id === projectId);
 
       if (!project) {
@@ -462,32 +667,17 @@ export default function WindowManager() {
       // EXISTING PROJECT WINDOW
       // -------------------------------------------------
 
-      const existingWindow = windows.find(
+      const existingWindow = windowsRef.current.find(
         (currentWindow) => currentWindow.id === windowId,
       );
 
       if (existingWindow) {
-        setHighestZIndex((currentZIndex) => {
-          const newZIndex = currentZIndex + 1;
+        /*
+         * openWindow already handles focus, restoring
+         * from the Dock and the genie animation.
+         */
 
-          setWindows((currentWindows) =>
-            currentWindows.map((currentWindow) =>
-              currentWindow.id === windowId
-                ? {
-                    ...currentWindow,
-
-                    isOpen: true,
-                    isMinimized: false,
-                    isMinimizing: false,
-
-                    zIndex: newZIndex,
-                  }
-                : currentWindow,
-            ),
-          );
-
-          return newZIndex;
-        });
+        openWindow(windowId);
 
         return;
       }
@@ -496,10 +686,20 @@ export default function WindowManager() {
       // NEW PROJECT WINDOW
       // -------------------------------------------------
 
+      playSound();
+
       setHighestZIndex((currentZIndex) => {
         const newZIndex = currentZIndex + 1;
 
         setWindows((currentWindows) => {
+          if (
+            currentWindows.some(
+              (currentWindow) => currentWindow.id === windowId,
+            )
+          ) {
+            return currentWindows;
+          }
+
           const openWindowCount = currentWindows.filter(
             (currentWindow) =>
               currentWindow.isOpen && !currentWindow.isMinimized,
@@ -520,6 +720,7 @@ export default function WindowManager() {
               isOpen: true,
               isMinimized: false,
               isMinimizing: false,
+              isRestoring: false,
               isMaximized: false,
 
               hasBeenOpened: true,
@@ -538,7 +739,12 @@ export default function WindowManager() {
         return newZIndex;
       });
     },
-    [playSound, windows, getCenteredPosition, getCascadePosition],
+    [
+      playSound,
+      openWindow,
+      getCenteredPosition,
+      getCascadePosition,
+    ],
   );
 
   // =====================================================
@@ -585,86 +791,16 @@ export default function WindowManager() {
   // =====================================================
   // DOCK APP HANDLER
   // =====================================================
+  //
+  // A Dock tile and its window do not always share an
+  // id (Files → projects, AI Assistant → assistant),
+  // so the mapping lives in data/dockApps.
+  //
+  // =====================================================
 
   const handleDockAppClick = useCallback(
-    (id: string) => {
-      // =============================================
-      // FINDER
-      // =============================================
-
-      if (id === "finder") {
-        handleDockClick("finder");
-        return;
-      }
-
-      // =============================================
-      // SAFARI
-      // =============================================
-
-      if (id === "safari") {
-        handleDockClick("safari");
-        return;
-      }
-
-      // =============================================
-      // TERMINAL
-      // =============================================
-
-      if (id === "terminal") {
-        handleDockClick("terminal");
-        return;
-      }
-
-      // =============================================
-      // FILES
-      // =============================================
-
-      if (id === "files") {
-        handleDockClick("projects");
-        return;
-      }
-
-      // =============================================
-      // MAIL
-      // =============================================
-
-      if (id === "mail") {
-        handleDockClick("mail");
-        return;
-      }
-
-      // =============================================
-      // AI
-      // =============================================
-
-      if (id === "ai") {
-        handleDockClick("assistant");
-        return;
-      }
-
-      // =============================================
-      // NOTES
-      // =============================================
-
-      if (id === "notes") {
-        handleDockClick("notes");
-        return;
-      }
-
-      // =============================================
-      // SETTINGS
-      // =============================================
-
-      if (id === "settings") {
-        handleDockClick("settings");
-        return;
-      }
-
-      // =============================================
-      // EXISTING APP
-      // =============================================
-
-      handleDockClick(id);
+    (dockId: string) => {
+      handleDockClick(windowIdForDock(dockId));
     },
     [handleDockClick],
   );
@@ -787,14 +923,14 @@ export default function WindowManager() {
       // ===============================================
 
       case "assistant":
-  return <AIAssistantApp />;
-
-      // ===============================================
-      // SETTINGS
-      // ===============================================
-
-      case "settings":
-        return <SettingsApp />;
+        return (
+          <AIAssistantApp
+            isVisible={
+              !currentWindow.isMinimized &&
+              !currentWindow.isMinimizing
+            }
+          />
+        );
 
       // ===============================================
       // SETTINGS
@@ -836,10 +972,15 @@ export default function WindowManager() {
 
       {windows.map((currentWindow) => {
         // -------------------------------------------
-        // CLOSED / MINIMIZED
+        // CLOSED
+        // -------------------------------------------
+        //
+        // Minimized windows stay mounted so the app
+        // keeps running in the background.
+        //
         // -------------------------------------------
 
-        if (!currentWindow.isOpen || currentWindow.isMinimized) {
+        if (!currentWindow.isOpen) {
           return null;
         }
 
@@ -853,6 +994,8 @@ export default function WindowManager() {
               title={currentWindow.title}
               isMaximized={currentWindow.isMaximized}
               isMinimizing={currentWindow.isMinimizing}
+              isMinimized={currentWindow.isMinimized}
+              isRestoring={currentWindow.isRestoring}
               zIndex={currentWindow.zIndex}
               position={currentWindow.position}
               onMove={(x, y) => updateWindowPosition(currentWindow.id, x, y)}
@@ -872,12 +1015,39 @@ export default function WindowManager() {
 
       <Dock
         onOpenApp={handleDockAppClick}
-        runningApps={windows
+        runningApps={toDockIds(
+          windows.filter(
+            (currentWindow) => currentWindow.isOpen,
+          ),
+        )}
+        minimizedApps={toDockIds(
+          windows.filter(
+            (currentWindow) =>
+              currentWindow.isOpen &&
+              (currentWindow.isMinimized ||
+                currentWindow.isMinimizing),
+          ),
+        )}
+        thumbnails={thumbnails}
+        minimizedWindows={windows
           .filter(
             (currentWindow) =>
-              currentWindow.isOpen && !currentWindow.isMinimized,
+              currentWindow.isOpen &&
+              (currentWindow.isMinimized ||
+                currentWindow.isMinimizing) &&
+              dockIdForWindow(currentWindow.id) === null,
           )
-          .map((currentWindow) => currentWindow.id)}
+          .map((currentWindow) => ({
+            id: currentWindow.id,
+            title: currentWindow.title,
+          }))}
+        onRestoreWindow={openWindow}
+        badges={{
+          ai: assistantUnreadCount,
+        }}
+        busyApps={
+          assistantIsStreaming ? ["ai"] : []
+        }
       />
     </>
   );

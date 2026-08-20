@@ -1,20 +1,35 @@
 "use client";
 
+import { useCallback, useState } from "react";
+
 import WindowManager from "@/components/windows/WindowManager";
 import MenuBar from "@/components/desktop/MenuBar";
 import WelcomeText from "@/components/desktop/WelcomeHero";
-
+import BootScreen from "@/components/desktop/BootScreen";
 
 import {
   PortfolioSettingsProvider,
   usePortfolioSettings,
 } from "@/context/PortfolioSettings";
 
+import { AssistantChatProvider } from "@/context/AssistantChat";
+
 function Desktop() {
   const {
     appearance,
     wallpaper,
   } = usePortfolioSettings();
+
+  // =====================================================
+  // BOOT
+  // =====================================================
+
+  const [hasBooted, setHasBooted] =
+    useState(false);
+
+  const handleBootFinish = useCallback(() => {
+    setHasBooted(true);
+  }, []);
 
   return (
     <main
@@ -37,13 +52,16 @@ function Desktop() {
       {/* macOS Menu Bar */}
       <MenuBar />
 
-      {/* Center Welcome Text */}
-      <WelcomeText />
+      {/* Center Welcome Text (after the boot sequence) */}
+      {hasBooted && <WelcomeText />}
 
       {/* Windows + Desktop Icons + Dock */}
       <div className="mac-desktop-content">
         <WindowManager />
       </div>
+
+      {/* Multilingual macOS boot screen */}
+      <BootScreen onFinish={handleBootFinish} />
     </main>
   );
 }
@@ -51,7 +69,9 @@ function Desktop() {
 export default function Home() {
   return (
     <PortfolioSettingsProvider>
-      <Desktop />
+      <AssistantChatProvider>
+        <Desktop />
+      </AssistantChatProvider>
     </PortfolioSettingsProvider>
   );
 }

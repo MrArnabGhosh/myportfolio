@@ -282,37 +282,6 @@ return new Response(stream, {
     "Connection": "keep-alive",
   },
 });
-
-    // =================================================
-    // RESPONSE
-    // =================================================
-
-    const answer = response.text
-      ?.replace(/\*\*/g, "")
-      .replace(/\*/g, "")
-      .replace(/`/g, "")
-      .trim();
-
-    if (!answer) {
-      console.error(
-        "Gemini returned no text.",
-        response,
-      );
-
-      return Response.json(
-        {
-          error:
-            "Gemini returned an empty response.",
-        },
-        {
-          status: 500,
-        },
-      );
-    }
-
-    return Response.json({
-      answer,
-    });
   } catch (error) {
     console.error(
       "Gemini API error:",

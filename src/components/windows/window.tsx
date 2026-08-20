@@ -9,6 +9,8 @@ interface WindowProps {
 
   isMaximized: boolean;
   isMinimizing: boolean;
+  isMinimized: boolean;
+  isRestoring: boolean;
 
   zIndex: number;
 
@@ -29,6 +31,8 @@ export default function Window({
   children,
   isMaximized,
   isMinimizing,
+  isMinimized,
+  isRestoring,
   zIndex,
   position,
   onMove,
@@ -130,6 +134,25 @@ export default function Window({
     : zIndex;
 
   // =====================================================
+  // WINDOW STATE CLASS
+  // =====================================================
+  //
+  // minimizing → genie animation into the Dock
+  // restoring  → genie animation back out of the Dock
+  // minimized  → kept mounted but hidden, so the app
+  //              keeps running in the background
+  //
+  // =====================================================
+
+  const stateClass = isMinimizing
+    ? "window-minimizing"
+    : isRestoring
+      ? "window-restoring"
+      : isMinimized
+        ? "window-hidden"
+        : "";
+
+  // =====================================================
   // WINDOW STYLE
   // =====================================================
 
@@ -150,7 +173,10 @@ export default function Window({
   return (
     <div
       style={windowStyle}
+      data-window-frame="true"
       className={`
+        mac-window
+
         ${
           isMaximized
             ? `
@@ -171,7 +197,7 @@ export default function Window({
             `
         }
 
-        ${isMinimizing ? "window-minimizing" : ""}
+        ${stateClass}
 
         overflow-hidden
         border
