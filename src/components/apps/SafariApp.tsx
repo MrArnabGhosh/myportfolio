@@ -29,7 +29,7 @@ const pages: SafariPage[] = [
   },
   {
     title: "LinkedIn",
-    url: "https://www.linkedin.com/in/arnab-ghosh404/",
+    url: "www.linkedin.com/in/arnab-ghosh404/",
     description:
       "Connect with me and explore my professional experience.",
     icon: "in",
